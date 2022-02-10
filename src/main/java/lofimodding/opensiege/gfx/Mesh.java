@@ -1,5 +1,8 @@
 package lofimodding.opensiege.gfx;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.lwjgl.opengl.GL11C.GL_FLOAT;
 import static org.lwjgl.opengl.GL11C.GL_UNSIGNED_INT;
 import static org.lwjgl.opengl.GL11C.glDrawArrays;
@@ -21,10 +24,17 @@ public class Mesh {
   private final int mode;
   private final boolean useIndices;
 
+  private final List<Mesh> children;
+
   public Mesh(final int mode, final float[] vertices, final int[] indices) {
+    this(mode, vertices, indices, new ArrayList<>());
+  }
+
+  public Mesh(final int mode, final float[] vertices, final int[] indices, final List<Mesh> children) {
     this.count = indices.length;
     this.mode = mode;
     this.useIndices = true;
+    this.children = children;
 
     this.vao = glGenVertexArrays();
     glBindVertexArray(this.vao);
@@ -41,9 +51,14 @@ public class Mesh {
   }
 
   public Mesh(final int mode, final float[] vertices, final int count) {
+    this(mode, vertices, count, new ArrayList<>());
+  }
+
+  public Mesh(final int mode, final float[] vertices, final int count, final List<Mesh> children) {
     this.count = count;
     this.mode = mode;
     this.useIndices = false;
+    this.children = children;
 
     this.vao = glGenVertexArrays();
     glBindVertexArray(this.vao);
@@ -69,6 +84,10 @@ public class Mesh {
       glDrawElements(this.mode, this.count, GL_UNSIGNED_INT, 0L);
     } else {
       glDrawArrays(this.mode, 0, this.count);
+    }
+
+    for(final Mesh child : this.children) {
+      child.draw();
     }
   }
 }

@@ -1,5 +1,6 @@
 package lofimodding.opensiege.formats.aspect;
 
+import lofimodding.opensiege.gfx.Mesh;
 import org.joml.Quaternionf;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -11,24 +12,29 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import static org.lwjgl.opengl.GL11C.GL_TRIANGLES;
 
 public final class AspectLoader {
   private AspectLoader() { }
 
   public static Aspect load(final InputStream file) throws IOException {
     AspectBmsh bmsh = null;
-    final List<AspectBonh> bonh = new ArrayList<>();
-    final List<AspectBsub> bsub = new ArrayList<>();
-    final List<AspectBsmm> bsmm = new ArrayList<>();
-    final List<AspectBvtx> bvtx = new ArrayList<>();
-    final List<AspectBcrn> bcrn = new ArrayList<>();
-    final List<AspectWcrn> wcrn = new ArrayList<>();
-    final List<AspectBvmp> bvmp = new ArrayList<>();
-    final List<AspectBtri> btri = new ArrayList<>();
-    final List<AspectBvwl> bvwl = new ArrayList<>();
-    final List<AspectStch> stch = new ArrayList<>();
-    final List<AspectRpos> rpos = new ArrayList<>();
+    AspectBsub currentBsub = null;
+    final List<AspectBonh> bonhs = new ArrayList<>();
+    final List<AspectBsub> bsubs = new ArrayList<>();
+    final Map<AspectBsub, List<AspectBsmm>> bsmms = new HashMap<>();
+    final List<AspectBvtx> bvtxs = new ArrayList<>();
+    final Map<AspectBsub, List<AspectBcrn>> bcrns = new HashMap<>();
+    final Map<AspectBsub, List<AspectWcrn>> wcrns = new HashMap<>();
+    final Map<AspectBsub, List<AspectBvmp>> bvmps = new HashMap<>();
+    final Map<AspectBsub, AspectBtri> btris = new HashMap<>();
+    final List<AspectBvwl> bvwls = new ArrayList<>();
+    final List<AspectStch> stchs = new ArrayList<>();
+    final List<AspectRpos> rposs = new ArrayList<>();
 
     for(String chunkId = read4cc(file); !chunkId.isEmpty(); chunkId = read4cc(file)) {
       switch(chunkId) {
@@ -45,41 +51,31 @@ public final class AspectLoader {
             throw new IOException("No bmsh definition");
           }
 
-          bonh.addAll(readBonh(file, bmsh));
+          bonhs.addAll(readBonh(file, bmsh));
         }
 
-        case "BSUB" -> bsub.add(readBsub(file));
-        case "BSMM" -> bsmm.addAll(readBsmm(file));
-        case "BVTX" -> bvtx.addAll(readBvtx(file));
-        case "BCRN" -> bcrn.addAll(readBcrn(file));
-        case "WCRN" -> wcrn.addAll(readWcrn(file));
-
-        case "BVMP" -> {
-          if(bmsh == null) {
-            throw new IOException("No bmsh definition");
-          }
-
-          bvmp.addAll(readBvmp(file, bmsh));
+        case "BSUB" -> {
+          currentBsub = readBsub(file);
+          bsubs.add(currentBsub);
         }
 
-        case "BTRI" -> {
-          if(bmsh == null) {
-            throw new IOException("No bmsh definition");
-          }
-
-          btri.add(readBtri(file, bmsh));
-        }
+        case "BSMM" -> bsmms.computeIfAbsent(currentBsub, key -> new ArrayList<>()).addAll(readBsmm(file));
+        case "BVTX" -> bvtxs.addAll(readBvtx(file));
+        case "BCRN" -> bcrns.computeIfAbsent(currentBsub, key -> new ArrayList<>()).addAll(readBcrn(file));
+        case "WCRN" -> wcrns.computeIfAbsent(currentBsub, key -> new ArrayList<>()).addAll(readWcrn(file));
+        case "BVMP" -> bvmps.computeIfAbsent(currentBsub, key -> new ArrayList<>()).addAll(readBvmp(file, currentBsub));
+        case "BTRI" -> btris.put(currentBsub, readBtri(file, currentBsub));
 
         case "BVWL" -> {
           if(bmsh == null) {
             throw new IOException("No bmsh definition");
           }
 
-          bvwl.addAll(readBvwl(file, bmsh));
+          bvwls.addAll(readBvwl(file, bmsh));
         }
 
-        case "STCH" -> stch.addAll(readStch(file));
-        case "RPOS" -> rpos.addAll(readRpos(file));
+        case "STCH" -> stchs.addAll(readStch(file));
+        case "RPOS" -> rposs.addAll(readRpos(file));
         case "BBOX" -> readBbox(file);
         case "BEND" -> readBend(file);
 
@@ -87,7 +83,69 @@ public final class AspectLoader {
       }
     }
 
-    return new Aspect();
+    final List<Mesh> meshes = new ArrayList<>();
+
+    int cornerOffset = 0;
+
+    for(final AspectBsub bsub : bsubs) {
+      final List<AspectWcrn> corners = wcrns.get(bsub);
+
+      final float[] vertices = new float[bsub.cornerCount() * 12];
+      int vertexIndex = 0;
+
+      for(final AspectWcrn corner : corners) {
+        vertices[vertexIndex++] = corner.pos().x;
+        vertices[vertexIndex++] = corner.pos().y;
+        vertices[vertexIndex++] = corner.pos().z;
+        vertices[vertexIndex++] = corner.normal().x;
+        vertices[vertexIndex++] = corner.normal().y;
+        vertices[vertexIndex++] = corner.normal().z;
+        vertices[vertexIndex++] = corner.colour().x / 255.0f;
+        vertices[vertexIndex++] = corner.colour().y / 255.0f;
+        vertices[vertexIndex++] = corner.colour().z / 255.0f;
+        vertices[vertexIndex++] = corner.colour().w / 255.0f;
+        vertices[vertexIndex++] = corner.uv().x;
+        vertices[vertexIndex++] = corner.uv().y;
+
+        //TODO add texture index as vertex attrib
+      }
+
+      int cornerIndexIndex = 0;
+
+      final List<AspectBsmm> bsmm = bsmms.get(bsub);
+      final AspectBtri btri = btris.get(bsub);
+
+      final List<Vector3i> faces = new ArrayList<>();
+
+      for(int subTextureIndex = 0; subTextureIndex < bsub.subTextures(); subTextureIndex++) {
+        for(int i = 0; i < bsmm.get(subTextureIndex).faceSpan(); i++) {
+          final int add = btri.cornerStart()[subTextureIndex] + cornerOffset;
+          faces.add(new Vector3i(btri.cornerIndex()[cornerIndexIndex]).add(add, add, add));
+
+          cornerIndexIndex++;
+        }
+      }
+
+      cornerOffset += bsub.cornerCount();
+
+      final int[] indices = new int[faces.size() * 3];
+      int indexIndex = 0;
+      for(final Vector3i face : faces) {
+        indices[indexIndex++] = face.x;
+        indices[indexIndex++] = face.y;
+        indices[indexIndex++] = face.z;
+      }
+
+      final Mesh mesh = new Mesh(GL_TRIANGLES, vertices, indices);
+      mesh.attribute(0,  0, 3, 12);
+      mesh.attribute(1,  3, 3, 12);
+      mesh.attribute(2,  6, 4, 12);
+      mesh.attribute(3, 10, 2, 12);
+
+      meshes.add(mesh);
+    }
+
+    return new Aspect(meshes);
   }
 
   private static AspectBmsh readBmsh(final InputStream file) throws IOException {
@@ -206,7 +264,7 @@ public final class AspectLoader {
       }
 
       final Vector3f normal = readVec3(file);
-      final int colour = readInt(file);
+      final Vector4i colour = readVec4b(file);
       final Vector2f uv = readVec2(file);
 
       //TODO remove null bone/weights? See import script line#347
@@ -217,11 +275,11 @@ public final class AspectLoader {
     return wcrn;
   }
 
-  private static List<AspectBvmp> readBvmp(final InputStream file, final AspectBmsh bmsh) throws IOException {
+  private static List<AspectBvmp> readBvmp(final InputStream file, final AspectBsub bsub) throws IOException {
     final AspectVersion version = AspectVersion.fromNum(readInt(file));
 
     final List<AspectBvmp> bvmp = new ArrayList<>();
-    for(int vertexIndex = 0; vertexIndex < bmsh.vertexCount(); vertexIndex++) {
+    for(int vertexIndex = 0; vertexIndex < bsub.vertexCount(); vertexIndex++) {
       final int count = readInt(file);
       final int[] indices = new int[count];
 
@@ -235,29 +293,29 @@ public final class AspectLoader {
     return bvmp;
   }
 
-  private static AspectBtri readBtri(final InputStream file, final AspectBmsh bmsh) throws IOException {
+  private static AspectBtri readBtri(final InputStream file, final AspectBsub bsub) throws IOException {
     final AspectVersion version = AspectVersion.fromNum(readInt(file));
 
     final int faceCount = readInt(file);
 
-    final int[] cornerStarts = new int[bmsh.textures().length];
-    final int[] cornerSpans = new int[bmsh.textures().length];
+    final int[] cornerStarts = new int[bsub.subTextures()];
+    final int[] cornerSpans = new int[bsub.subTextures()];
 
     if(version.normalized < 22) {
-      for(int textureIndex = 0; textureIndex < bmsh.textures().length; textureIndex++) {
+      for(int textureIndex = 0; textureIndex < bsub.subTextures(); textureIndex++) {
         cornerStarts[textureIndex] = 0;
         cornerSpans[textureIndex] = readInt(file);
       }
     } else if(version.normalized == 22) {
-      for(int textureIndex = 0; textureIndex < bmsh.textures().length; textureIndex++) {
+      for(int textureIndex = 0; textureIndex < bsub.subTextures(); textureIndex++) {
         cornerSpans[textureIndex] = readInt(file);
       }
 
-      for(int textureIndex = 0; textureIndex < bmsh.textures().length - 1; textureIndex++) {
+      for(int textureIndex = 0; textureIndex < bsub.subTextures() - 1; textureIndex++) {
         cornerStarts[textureIndex + 1] = cornerStarts[textureIndex] + cornerSpans[textureIndex];
       }
     } else {
-      for(int textureIndex = 0; textureIndex < bmsh.textures().length; textureIndex++) {
+      for(int textureIndex = 0; textureIndex < bsub.subTextures(); textureIndex++) {
         cornerStarts[textureIndex] = readInt(file);
         cornerSpans[textureIndex] = readInt(file);
       }
