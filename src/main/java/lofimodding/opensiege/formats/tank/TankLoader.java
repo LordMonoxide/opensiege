@@ -7,11 +7,16 @@ import javax.annotation.Nullable;
 import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+
+import static lofimodding.opensiege.formats.StreamReader.readInt;
+import static lofimodding.opensiege.formats.StreamReader.readInt16;
+import static lofimodding.opensiege.formats.StreamReader.readLong;
+import static lofimodding.opensiege.formats.StreamReader.readNString;
+import static lofimodding.opensiege.formats.StreamReader.readString;
 
 public final class TankLoader {
   private TankLoader() { }
@@ -195,52 +200,5 @@ public final class TankLoader {
 
     buildPath(path, dirEntries, dirEntries.get(dirEntry.parentOffset()));
     path.append('/').append(dirEntry.dirName());
-  }
-
-  private static String readString(final InputStream file, final int length) throws IOException {
-    final byte[] raw = new byte[length];
-    file.read(raw);
-    return new String(raw);
-  }
-
-  private static String readNString(final InputStream file) throws IOException {
-    final int length = readInt16(file);
-    final String string = readString(file, length);
-
-    // 4-byte align
-    file.skip(4 - (length + 2) % 4);
-
-    return string;
-  }
-
-  private static int readInt16(final InputStream file) throws IOException {
-    final byte[] raw = new byte[2];
-    file.read(raw);
-    return (raw[1] & 0xff) << 8 | raw[0] & 0xff;
-  }
-
-  private static int readInt16(final byte[] data, final int offset) throws IOException {
-    return (data[offset + 1] & 0xff) << 8 | data[offset] & 0xff;
-  }
-
-  private static final byte[] readIntBuf = new byte[4];
-
-  private static int readInt(final InputStream file) throws IOException {
-    file.read(readIntBuf);
-    return readInt(readIntBuf, 0);
-  }
-
-  private static int readInt(final byte[] data, final int offset) {
-    return (data[offset + 3] & 0xff) << 24 | (data[offset + 2] & 0xff) << 16 | (data[offset + 1] & 0xff) << 8 | data[offset] & 0xff;
-  }
-
-  private static long readLong(final InputStream file) throws IOException {
-    final byte[] raw = new byte[8];
-    file.read(raw);
-    return (raw[7] & 0xffL) << 56 | (raw[6] & 0xffL) << 48 | (raw[5] & 0xffL) << 40 | (raw[4] & 0xffL) << 32 | (raw[3] & 0xffL) << 24 | (raw[2] & 0xffL) << 16 | (raw[1] & 0xffL) << 8 | raw[0] & 0xffL;
-  }
-
-  private static long readLong(final byte[] data, final int offset) {
-    return (data[offset + 7] & 0xffL) << 56 | (data[offset + 6] & 0xffL) << 48 | (data[offset + 5] & 0xffL) << 40 | (data[offset + 4] & 0xffL) << 32 | (data[offset + 3] & 0xffL) << 24 | (data[offset + 2] & 0xffL) << 16 | (data[offset + 1] & 0xffL) << 8 | data[offset] & 0xffL;
   }
 }

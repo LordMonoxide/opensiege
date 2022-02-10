@@ -2,20 +2,26 @@ package lofimodding.opensiege;
 
 import lofimodding.opensiege.formats.aspect.Aspect;
 import lofimodding.opensiege.formats.aspect.AspectLoader;
+import lofimodding.opensiege.formats.raw.RawTexture;
+import lofimodding.opensiege.formats.raw.RawTextureLoader;
 import lofimodding.opensiege.formats.tank.Tank;
 import lofimodding.opensiege.formats.tank.TankLoader;
 import lofimodding.opensiege.gfx.Context;
 import lofimodding.opensiege.gfx.Mesh;
 import lofimodding.opensiege.gfx.QuaternionCamera;
 import lofimodding.opensiege.gfx.Shader;
+import lofimodding.opensiege.gfx.Texture;
 import lofimodding.opensiege.gfx.Window;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
@@ -28,6 +34,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_W;
 import static org.lwjgl.opengl.GL11C.GL_FILL;
 import static org.lwjgl.opengl.GL11C.GL_FRONT_AND_BACK;
 import static org.lwjgl.opengl.GL11C.GL_LINE;
+import static org.lwjgl.opengl.GL11C.GL_RGBA;
+import static org.lwjgl.opengl.GL11C.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11C.glPolygonMode;
 
 public class Game {
@@ -58,7 +66,7 @@ public class Game {
   private boolean wireframeMode;
 
   public Game() throws IOException {
-    this.window = new Window("Town Watch", WINDOW_WIDTH, WINDOW_HEIGHT);
+    this.window = new Window("OpenSiege", WINDOW_WIDTH, WINDOW_HEIGHT);
     this.ctx = new Context(this.window, new QuaternionCamera(0.0f, 3.0f, 10.0f));
     this.ctx.setClearColour(0.0f, 0.0f, 0.0f);
 
@@ -71,23 +79,29 @@ public class Game {
     basicShader.bindUniformBlock("transforms", Shader.UniformBuffer.TRANSFORM);
     basicShader.bindUniformBlock("transforms2", Shader.UniformBuffer.TRANSFORM2);
 
-    final float[] vertices = {
-      -0.5f, -0.5f,  0.5f,   0.0f,  1.0f, // bottom-left
-       0.5f, -0.5f,  0.5f,   1.0f,  1.0f, // bottom-right
-       0.5f,  0.5f,  0.5f,   1.0f,  0.0f, // top-right
-       0.5f,  0.5f,  0.5f,   1.0f,  0.0f, // top-right
-      -0.5f,  0.5f,  0.5f,   0.0f,  0.0f, // top-left
-      -0.5f, -0.5f,  0.5f,   0.0f,  1.0f, // bottom-left
-    };
-
-//    final Mesh mesh = new Mesh(GL_TRIANGLES, vertices, 6);
-//    mesh.attribute(0, 0L, 3, 5);
-//    mesh.attribute(1, 3L, 2, 5);
+    basicShader.use();
+    for(int i = 0; i < 16; i++) {
+      basicShader.new UniformInt("tex[" + i + ']').set(i);
+    }
 
     final Tank tank = TankLoader.load(Paths.get("C:", "Program Files (x86)", "Steam", "steamapps", "common", "Dungeon Siege 1", "Resources", "Objects.dsres"));
 
     final InputStream aspectData = tank.getFile("/art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_logo.asp");
     final Aspect aspect = AspectLoader.load(aspectData);
+    final List<Texture> textures = new ArrayList<>();
+
+    for(final String texture : aspect.textures()) {
+      final RawTexture raw = RawTextureLoader.load(tank.getFile("/art/bitmaps/gui/front_end/menus/main/" + texture + ".raw"));
+      textures.add(Texture.create(builder -> {
+        final ByteBuffer buffer = BufferUtils.createByteBuffer(raw.data().length);
+        buffer.put(raw.data());
+        buffer.flip();
+
+        builder.data(buffer, raw.header().width(), raw.header().height());
+        builder.dataFormat(GL_RGBA);
+        builder.dataType(GL_UNSIGNED_BYTE);
+      }));
+    }
 
     final FloatBuffer identityBuffer = BufferUtils.createFloatBuffer(4 * 4);
     new Matrix4f().get(identityBuffer);
@@ -98,7 +112,10 @@ public class Game {
       this.transforms2.set(identityBuffer);
 
       basicShader.use();
-//      mesh.draw();
+
+      for(int i = 0; i < textures.size(); i++) {
+        textures.get(i).use(i);
+      }
 
       for(final Mesh mesh : aspect.meshes()) {
         mesh.draw();

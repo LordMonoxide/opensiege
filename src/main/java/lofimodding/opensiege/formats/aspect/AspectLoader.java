@@ -8,14 +8,23 @@ import org.joml.Vector3i;
 import org.joml.Vector4f;
 import org.joml.Vector4i;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static lofimodding.opensiege.formats.StreamReader.read4cc;
+import static lofimodding.opensiege.formats.StreamReader.readInt;
+import static lofimodding.opensiege.formats.StreamReader.readQuat;
+import static lofimodding.opensiege.formats.StreamReader.readString;
+import static lofimodding.opensiege.formats.StreamReader.readVec2;
+import static lofimodding.opensiege.formats.StreamReader.readVec3;
+import static lofimodding.opensiege.formats.StreamReader.readVec3i;
+import static lofimodding.opensiege.formats.StreamReader.readVec4;
+import static lofimodding.opensiege.formats.StreamReader.readVec4b;
 import static org.lwjgl.opengl.GL11C.GL_TRIANGLES;
 
 public final class AspectLoader {
@@ -90,7 +99,7 @@ public final class AspectLoader {
     for(final AspectBsub bsub : bsubs) {
       final List<AspectWcrn> corners = wcrns.get(bsub);
 
-      final float[] vertices = new float[bsub.cornerCount() * 12];
+      final float[] vertices = new float[bsub.cornerCount() * 13];
       int vertexIndex = 0;
 
       for(final AspectWcrn corner : corners) {
@@ -106,8 +115,7 @@ public final class AspectLoader {
         vertices[vertexIndex++] = corner.colour().w / 255.0f;
         vertices[vertexIndex++] = corner.uv().x;
         vertices[vertexIndex++] = corner.uv().y;
-
-        //TODO add texture index as vertex attrib
+        vertices[vertexIndex++] = Float.NaN;
       }
 
       int cornerIndexIndex = 0;
@@ -120,7 +128,22 @@ public final class AspectLoader {
       for(int subTextureIndex = 0; subTextureIndex < bsub.subTextures(); subTextureIndex++) {
         for(int i = 0; i < bsmm.get(subTextureIndex).faceSpan(); i++) {
           final int add = btri.cornerStart()[subTextureIndex] + cornerOffset;
-          faces.add(new Vector3i(btri.cornerIndex()[cornerIndexIndex]).add(add, add, add));
+          final Vector3i verts = new Vector3i(btri.cornerIndex()[cornerIndexIndex]).add(add, add, add);
+
+          for(int vert = 0; vert < 3; vert++) {
+            final int idx = verts.get(vert) * 13 + 12;
+
+            if(vertices[idx] != bsmm.get(subTextureIndex).textureIndex()) {
+              // Sanity check - I'm not sure if this is foolproof
+              if(!Float.isNaN(vertices[idx])) {
+                System.err.println("Vert " + verts.get(vert) + " texture index already set");
+              }
+
+              vertices[idx] = bsmm.get(subTextureIndex).textureIndex();
+            }
+          }
+
+          faces.add(verts);
 
           cornerIndexIndex++;
         }
@@ -137,15 +160,16 @@ public final class AspectLoader {
       }
 
       final Mesh mesh = new Mesh(GL_TRIANGLES, vertices, indices);
-      mesh.attribute(0,  0, 3, 12);
-      mesh.attribute(1,  3, 3, 12);
-      mesh.attribute(2,  6, 4, 12);
-      mesh.attribute(3, 10, 2, 12);
+      mesh.attribute(0,  0, 3, 13);
+      mesh.attribute(1,  3, 3, 13);
+      mesh.attribute(2,  6, 4, 13);
+      mesh.attribute(3, 10, 2, 13);
+      mesh.attribute(4, 12, 1, 13);
 
       meshes.add(mesh);
     }
 
-    return new Aspect(meshes);
+    return new Aspect(Arrays.asList(bmsh.textures()), meshes);
   }
 
   private static AspectBmsh readBmsh(final InputStream file) throws IOException {
@@ -154,6 +178,11 @@ public final class AspectLoader {
     final int textFieldSize = readInt(file);
     final int boneCount = readInt(file);
     final int textureCount = readInt(file);
+
+    if(textureCount > 16) {
+      throw new IOException("Only 16 textures per mesh currently supported");
+    }
+
     final int vertexCount = readInt(file);
     final int submeshCount = readInt(file);
     final int renderFlags = readInt(file);
@@ -419,63 +448,5 @@ public final class AspectLoader {
 
       System.out.println(builder);
     }
-  }
-
-  private static String read4cc(final InputStream file) throws IOException {
-    final byte[] raw = new byte[4];
-
-    if(file.read(raw) < 4) {
-      return "";
-    }
-
-    return new String(raw);
-  }
-
-  private static String readString(final InputStream file, final int length) throws IOException {
-    final byte[] raw = new byte[length];
-
-    if(file.read(raw) < raw.length) {
-      throw new EOFException("End of file reached");
-    }
-
-    return new String(raw);
-  }
-
-  private static int readInt(final InputStream file) throws IOException {
-    final byte[] raw = new byte[4];
-
-    if(file.read(raw) < raw.length) {
-      throw new EOFException("End of file reached");
-    }
-
-    return (raw[3] & 0xff) << 24 | (raw[2] & 0xff) << 16 | (raw[1] & 0xff) << 8 | raw[0] & 0xff;
-  }
-
-  private static float readFloat(final InputStream file) throws IOException {
-    return Float.intBitsToFloat(readInt(file));
-  }
-
-  private static Vector2f readVec2(final InputStream file) throws IOException {
-    return new Vector2f(readFloat(file), readFloat(file));
-  }
-
-  private static Vector3f readVec3(final InputStream file) throws IOException {
-    return new Vector3f(readFloat(file), readFloat(file), readFloat(file));
-  }
-
-  private static Vector3i readVec3i(final InputStream file) throws IOException {
-    return new Vector3i(readInt(file), readInt(file), readInt(file));
-  }
-
-  private static Vector4f readVec4(final InputStream file) throws IOException {
-    return new Vector4f(readFloat(file), readFloat(file), readFloat(file), readFloat(file));
-  }
-
-  private static Vector4i readVec4b(final InputStream file) throws IOException {
-    return new Vector4i(file.read(), file.read(), file.read(), file.read());
-  }
-
-  private static Quaternionf readQuat(final InputStream file) throws IOException {
-    return new Quaternionf(readFloat(file), readFloat(file), readFloat(file), readFloat(file));
   }
 }
