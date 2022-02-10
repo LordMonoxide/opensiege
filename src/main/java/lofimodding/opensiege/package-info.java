@@ -1,0 +1,5 @@
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
+package lofimodding.opensiege;
+
+import javax.annotation.ParametersAreNonnullByDefault;
