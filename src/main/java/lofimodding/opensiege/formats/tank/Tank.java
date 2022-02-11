@@ -14,7 +14,7 @@ import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
 public record Tank(Path path, TankHeader header, Int2ObjectMap<TankDirectoryEntry> directoryEntries, Int2ObjectMap<TankFileEntry> fileEntries, Map<String, TankFileEntry> paths) {
-  public InputStream getFile(final String filename) throws IOException {
+  public InputStream getFileByPath(final String filename) throws IOException {
     //TODO file caching
 
     System.out.println("Extracting file " + filename);

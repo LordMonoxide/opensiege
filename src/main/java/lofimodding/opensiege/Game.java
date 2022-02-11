@@ -4,8 +4,7 @@ import lofimodding.opensiege.formats.aspect.Aspect;
 import lofimodding.opensiege.formats.aspect.AspectLoader;
 import lofimodding.opensiege.formats.raw.RawTexture;
 import lofimodding.opensiege.formats.raw.RawTextureLoader;
-import lofimodding.opensiege.formats.tank.Tank;
-import lofimodding.opensiege.formats.tank.TankLoader;
+import lofimodding.opensiege.formats.tank.TankManager;
 import lofimodding.opensiege.gfx.Context;
 import lofimodding.opensiege.gfx.Mesh;
 import lofimodding.opensiege.gfx.QuaternionCamera;
@@ -19,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,7 +65,7 @@ public class Game {
 
   private boolean wireframeMode;
 
-  public Game() throws IOException {
+  public Game(final Path installPath) throws IOException {
     this.window = new Window("OpenSiege", WINDOW_WIDTH, WINDOW_HEIGHT);
     this.ctx = new Context(this.window, new QuaternionCamera(0.0f, 3.0f, 10.0f));
     this.ctx.setClearColour(0.0f, 0.0f, 0.0f);
@@ -84,23 +84,28 @@ public class Game {
       basicShader.new UniformInt("tex[" + i + ']').set(i);
     }
 
-    final Tank tank = TankLoader.load(Paths.get("C:", "Program Files (x86)", "Steam", "steamapps", "common", "Dungeon Siege 1", "Resources", "Objects.dsres"));
+    final TankManager tankManager = new TankManager(installPath);
 
-    final InputStream aspectData = tank.getFile("/art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_logo.asp");
+    final InputStream aspectData = tankManager.getFileByPath("/art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_mainmenu.asp");
     final Aspect aspect = AspectLoader.load(aspectData);
     final List<Texture> textures = new ArrayList<>();
 
     for(final String texture : aspect.textures()) {
-      final RawTexture raw = RawTextureLoader.load(tank.getFile("/art/bitmaps/gui/front_end/menus/main/" + texture + ".raw"));
-      textures.add(Texture.create(builder -> {
-        final ByteBuffer buffer = BufferUtils.createByteBuffer(raw.data().length);
-        buffer.put(raw.data());
-        buffer.flip();
+      try {
+        final RawTexture raw = RawTextureLoader.load(tankManager.getFileByPath("/art/bitmaps/gui/front_end/menus/main/" + texture + ".raw"));
+        textures.add(Texture.create(builder -> {
+          final ByteBuffer buffer = BufferUtils.createByteBuffer(raw.data().length);
+          buffer.put(raw.data());
+          buffer.flip();
 
-        builder.data(buffer, raw.header().width(), raw.header().height());
-        builder.dataFormat(GL_RGBA);
-        builder.dataType(GL_UNSIGNED_BYTE);
-      }));
+          builder.data(buffer, raw.header().width(), raw.header().height());
+          builder.dataFormat(GL_RGBA);
+          builder.dataType(GL_UNSIGNED_BYTE);
+        }));
+      } catch(final IOException e) {
+        System.err.println("Failed to load texture " + texture + " - " + e.getLocalizedMessage());
+        textures.add(Texture.empty(1, 1));
+      }
     }
 
     final FloatBuffer identityBuffer = BufferUtils.createFloatBuffer(4 * 4);

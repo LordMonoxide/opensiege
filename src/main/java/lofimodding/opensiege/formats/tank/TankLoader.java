@@ -45,7 +45,11 @@ public final class TankLoader {
     final int indexSize = readInt(file);
     final int dataSetOffset = readInt(file);
 
-    final TankHeader header = new TankHeader(productId, tankId, headerVersion, dirSetOffset, fileSetOffset, indexSize, dataSetOffset);
+    file.skip(24);
+
+    final TankPriority priority = TankPriority.fromCode(readInt(file));
+
+    final TankHeader header = new TankHeader(productId, tankId, headerVersion, dirSetOffset, fileSetOffset, indexSize, dataSetOffset, priority);
 
     // Directory entries
     System.out.println("Finding directory entries...");
