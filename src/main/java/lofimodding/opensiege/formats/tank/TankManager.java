@@ -15,12 +15,16 @@ public class TankManager {
   private final List<Tank> tanks = new ArrayList<>();
   private final Map<String, Tank> paths = new HashMap<>();
   private final Map<String, String> files = new HashMap<>();
-  private final Directory root = new Directory();
+  private final TankDirectory root = new TankDirectory();
 
   public TankManager(final Path installPath) throws IOException {
     System.out.println("Loading resources...");
 
     for(final Path child : Files.newDirectoryStream(installPath.resolve("Resources"), child -> Files.isRegularFile(child) && child.toString().endsWith(".dsres"))) {
+      this.tanks.add(TankLoader.load(child));
+    }
+
+    for(final Path child : Files.newDirectoryStream(installPath.resolve("Maps"), child -> Files.isRegularFile(child) && child.toString().endsWith(".dsmap"))) {
       this.tanks.add(TankLoader.load(child));
     }
 
@@ -40,11 +44,11 @@ public class TankManager {
 
     for(final Tank tank : this.tanks) {
       for(final String path : tank.paths().keySet()) {
-        final String[] pathParts = (path.startsWith("/") ? path.substring(1) : path).split("/");
+        final String[] pathParts = stripLeadingSlash(path).split("/");
 
-        Directory dir = this.root;
+        TankDirectory dir = this.root;
         for(int i = 0; i < pathParts.length - 1; i++) {
-          dir = dir.directories.computeIfAbsent(pathParts[i], key -> new Directory());
+          dir = dir.directories.computeIfAbsent(pathParts[i], key -> new TankDirectory());
         }
 
         dir.files.put(pathParts[pathParts.length - 1], tank);
@@ -71,8 +75,17 @@ public class TankManager {
     return this.files.get(file);
   }
 
-  private static class Directory {
-    private final Map<String, Directory> directories = new HashMap<>();
-    private final Map<String, Tank> files = new HashMap<>();
+  public Iterable<String> getSubdirectories(final String path) {
+    final String[] pathParts = stripLeadingSlash(path).split("/");
+    TankDirectory dir = this.root;
+    for(final String part : pathParts) {
+      dir = dir.directories.get(part);
+    }
+
+    return dir.directories.keySet();
+  }
+
+  private static String stripLeadingSlash(final String path) {
+    return path.startsWith("/") ? path.substring(1) : path;
   }
 }

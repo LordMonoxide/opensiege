@@ -86,6 +86,11 @@ public class Game {
 
     final TankManager tankManager = new TankManager(installPath);
 
+    System.out.println("Available maps:");
+    for(final String child : tankManager.getSubdirectories("/world/maps")) {
+      System.out.println(child);
+    }
+
     final InputStream aspectData = tankManager.getFileByPath("/art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_mainmenu.asp");
     final Aspect aspect = AspectLoader.load(aspectData);
     final List<Texture> textures = new ArrayList<>();
