@@ -2,6 +2,7 @@ package lofimodding.opensiege;
 
 import lofimodding.opensiege.formats.aspect.Aspect;
 import lofimodding.opensiege.formats.aspect.AspectLoader;
+import lofimodding.opensiege.formats.gas.GasLoader;
 import lofimodding.opensiege.formats.raw.RawTexture;
 import lofimodding.opensiege.formats.raw.RawTextureLoader;
 import lofimodding.opensiege.formats.tank.TankManager;
@@ -88,6 +89,7 @@ public class Game {
 
     System.out.println("Available maps:");
     for(final String child : tankManager.getSubdirectories("/world/maps")) {
+      GasLoader.load(tankManager.getFileByPath("/world/maps/" + child + "/main.gas"));
       System.out.println(child);
     }
 

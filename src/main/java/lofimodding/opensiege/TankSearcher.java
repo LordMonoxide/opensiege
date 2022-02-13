@@ -13,7 +13,7 @@ public final class TankSearcher {
   private TankSearcher() { }
 
   public static void main(final String[] args) throws IOException {
-    final Tank tank = TankLoader.load(Paths.get("C:", "Program Files (x86)", "Steam", "steamapps", "common", "Dungeon Siege 1", "Resources", "Logic.dsres"));
+    final Tank tank = TankLoader.load(Paths.get("C:", "Program Files (x86)", "Steam", "steamapps", "common", "Dungeon Siege 1", "Maps", "World.dsmap"));
 
     final List<String> refs = new ArrayList<>();
 
@@ -21,7 +21,7 @@ public final class TankSearcher {
       final InputStream stream = tank.getFileByPath(filename);
       final String data = new String(stream.readAllBytes());
 
-      if(data.toLowerCase().contains("components")) {
+      if(data.toLowerCase().contains("f0ac542f")) {
         refs.add(filename);
       }
     }
