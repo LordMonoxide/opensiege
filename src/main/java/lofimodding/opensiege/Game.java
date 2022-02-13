@@ -35,9 +35,9 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_W;
 import static org.lwjgl.opengl.GL11C.GL_FILL;
 import static org.lwjgl.opengl.GL11C.GL_FRONT_AND_BACK;
 import static org.lwjgl.opengl.GL11C.GL_LINE;
-import static org.lwjgl.opengl.GL11C.GL_RGBA;
 import static org.lwjgl.opengl.GL11C.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11C.glPolygonMode;
+import static org.lwjgl.opengl.GL12C.GL_BGRA;
 
 public class Game {
   private static final int WINDOW_WIDTH = 1280;
@@ -106,7 +106,7 @@ public class Game {
           buffer.flip();
 
           builder.data(buffer, raw.header().width(), raw.header().height());
-          builder.dataFormat(GL_RGBA);
+          builder.dataFormat(GL_BGRA);
           builder.dataType(GL_UNSIGNED_BYTE);
         }));
       } catch(final IOException e) {
