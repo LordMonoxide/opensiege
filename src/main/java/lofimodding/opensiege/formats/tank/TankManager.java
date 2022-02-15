@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class TankManager {
   private final List<Tank> tanks = new ArrayList<>();
@@ -59,6 +60,10 @@ public class TankManager {
     }
 
     System.out.println("All resources loaded.");
+  }
+
+  public Set<String> getFiles() {
+    return this.paths.keySet();
   }
 
   public InputStream getFileByPath(final String filename) throws IOException {
