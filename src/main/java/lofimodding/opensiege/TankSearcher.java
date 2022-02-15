@@ -16,14 +16,22 @@ public final class TankSearcher {
 
     final List<String> refs = new ArrayList<>();
 
-    for(final String filename : tankManager.getFiles()) {
-      final InputStream stream = tankManager.getFileByPath(filename);
-      final String data = new String(stream.readAllBytes());
-
-      if(data.toLowerCase().contains(args[0])) {
-        refs.add(filename);
+    tankManager.getFiles().parallelStream().forEach(filename -> {
+      if(filename.endsWith(".lqd20")) {
+        return;
       }
-    }
+
+      try {
+        final InputStream stream = tankManager.getFileByPath(filename);
+        final String data = new String(stream.readAllBytes());
+
+        if(data.toLowerCase().contains(args[0])) {
+          refs.add(filename);
+        }
+      } catch(final IOException e) {
+        throw new RuntimeException(e);
+      }
+    });
 
     refs.forEach(System.out::println);
   }
