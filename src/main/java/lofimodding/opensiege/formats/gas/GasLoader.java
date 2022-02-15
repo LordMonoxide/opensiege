@@ -49,6 +49,7 @@ public final class GasLoader {
   private static final Reader READ_BOOL_VALUE = new ReadBoolValue();
   private static final Reader READ_FLOAT_VALUE = new ReadFloatValue();
   private static final Reader READ_HEX_VALUE = new ReadHexValue();
+  private static final Reader READ_INT_VALUE = new ReadIntValue();
 
   private static final State READ_OBJECT_STATE = new State(READ_HEADER, READ_BRACE);
   private static final State READ_PROPERTY_STATE = new State(READ_KEY, READ_EQUAL);
@@ -58,6 +59,7 @@ public final class GasLoader {
   private static final State READ_BOOL_VALUE_STATE = new State(READ_BOOL_VALUE, READ_SEMICOLON);
   private static final State READ_FLOAT_VALUE_STATE = new State(READ_FLOAT_VALUE, READ_SEMICOLON);
   private static final State READ_HEX_VALUE_STATE = new State(READ_HEX_VALUE, READ_SEMICOLON);
+  private static final State READ_INT_VALUE_STATE = new State(READ_INT_VALUE, READ_SEMICOLON);
 
   public static Map<String, Object> load(final InputStream file) {
     final BufferedReader reader = new BufferedReader(new InputStreamReader(file));
@@ -280,7 +282,7 @@ public final class GasLoader {
     }
 
     public String readValue() {
-      return this.readUntil(c -> (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '.');
+      return this.readUntil(c -> (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '.' && c != '\\');
     }
 
     public void skipUntil(final CharPredicate until) {
@@ -431,6 +433,12 @@ public final class GasLoader {
           stateManager.advance(key.length());
         }
 
+        case "i" -> {
+          key = stateManager.readKey();
+          newState = READ_INT_VALUE_STATE;
+          stateManager.advance(key.length());
+        }
+
         default -> {
           key = type;
           newState = READ_VALUE_STATE;
@@ -456,6 +464,11 @@ public final class GasLoader {
         final String str = stateManager.readUntil('"');
         stateManager.advance(str.length() + 1);
         val = str;
+      } else if(stateManager.read() == '<') {
+        stateManager.advance();
+        final String str = stateManager.readUntil('>');
+        stateManager.advance(str.length() + 1);
+        val = new GasBracketType(str);
       } else {
         while(true) {
           final String wp = stateManager.readUntil(';');
@@ -584,6 +597,24 @@ public final class GasLoader {
         val = Integer.parseInt(value, 16);
       } catch(final NumberFormatException e) {
         throw new GasParserException("Expected hex value");
+      }
+
+      stateManager.setValue(val);
+      stateManager.changeState(READ_PROPERTY_OR_HEADER_STATE);
+    }
+  }
+
+  private static class ReadIntValue implements Reader {
+    @Override
+    public void read(final StateManager stateManager) throws GasParserException {
+      final String value = stateManager.readValue();
+      stateManager.advance(value.length());
+
+      final int val;
+      try {
+        val = Integer.parseInt(value);
+      } catch(final NumberFormatException e) {
+        throw new GasParserException("Expected int value");
       }
 
       stateManager.setValue(val);
