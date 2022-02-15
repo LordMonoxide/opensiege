@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Launcher" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="lofimodding.opensiege.Launcher" />
+    <module name="opensiege.main" />
+    <option name="PROGRAM_PARAMETERS" value="&quot;C:\Program Files (x86)\Steam\steamapps\common\Dungeon Siege 1&quot;" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="lofimodding.opensiege.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
