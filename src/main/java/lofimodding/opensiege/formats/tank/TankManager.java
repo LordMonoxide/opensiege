@@ -3,6 +3,7 @@ package lofimodding.opensiege.formats.tank;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -21,13 +22,23 @@ public class TankManager {
   public TankManager(final Path installPath) throws IOException {
     System.out.println("Loading resources...");
 
-    for(final Path child : Files.newDirectoryStream(installPath.resolve("Resources"), child -> Files.isRegularFile(child) && child.toString().endsWith(".dsres"))) {
-      this.tanks.add(TankLoader.load(child));
+    final List<Path> files = new ArrayList<>();
+
+    try(final DirectoryStream<Path> ds = Files.newDirectoryStream(installPath.resolve("Resources"), child -> Files.isRegularFile(child) && child.toString().endsWith(".dsres"))) {
+      ds.forEach(files::add);
     }
 
-    for(final Path child : Files.newDirectoryStream(installPath.resolve("Maps"), child -> Files.isRegularFile(child) && child.toString().endsWith(".dsmap"))) {
-      this.tanks.add(TankLoader.load(child));
+    try(final DirectoryStream<Path> ds = Files.newDirectoryStream(installPath.resolve("Maps"), child -> Files.isRegularFile(child) && child.toString().endsWith(".dsmap"))) {
+      ds.forEach(files::add);
     }
+
+    files.parallelStream().map(path1 -> {
+      try {
+        return TankLoader.load(path1);
+      } catch(final IOException e) {
+        throw new RuntimeException(e);
+      }
+    }).forEach(this.tanks::add);
 
     System.out.println("Sorting resources...");
 

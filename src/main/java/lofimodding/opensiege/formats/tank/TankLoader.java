@@ -35,8 +35,6 @@ public final class TankLoader {
     final FileInputStream file = new FileInputStream(path.toFile());
 
     // Header
-    System.out.println("Loading header...");
-
     final String productId = readString(file, 4);
     final String tankId = readString(file, 4);
     final int headerVersion = readInt(file);
@@ -52,8 +50,6 @@ public final class TankLoader {
     final TankHeader header = new TankHeader(productId, tankId, headerVersion, dirSetOffset, fileSetOffset, indexSize, dataSetOffset, priority);
 
     // Directory entries
-    System.out.println("Finding directory entries...");
-
     file.getChannel().position(dirSetOffset);
 
     final int dirCount = readInt(file);
@@ -92,8 +88,6 @@ public final class TankLoader {
     }
 
     // File entries
-    System.out.println("Finding file entries...");
-
     file.getChannel().position(fileSetOffset);
 
     final int fileCount = readInt(file);
@@ -168,8 +162,6 @@ public final class TankLoader {
 
       fileEntries.put(fileOffset, new TankFileEntry(parentOffset, entrySize, dataOffset, crc32, fileTime, format, flags, name, compressionHeader));
     }
-
-    System.out.println("Building path tree...");
 
     final Map<String, TankFileEntry> paths = buildPaths(dirEntries, fileEntries);
 
