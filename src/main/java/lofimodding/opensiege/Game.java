@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
@@ -89,9 +90,12 @@ public class Game {
 
     System.out.println("Available maps:");
     for(final String child : tankManager.getSubdirectories("/world/maps")) {
-      GasLoader.load(tankManager.getFileByPath("/world/maps/" + child + "/main.gas"));
-      System.out.println(child);
+      final Map<String, Object> map = GasLoader.load(tankManager.getFileByPath("/world/maps/" + child + "/main.gas"));
+      final Map<String, Object> data = (Map<String, Object>)map.get("t:map,n:map");
+      System.out.println(data.get("screen_name") + " - " + data.get("description"));
     }
+
+    GasLoader.load(tankManager.getFileByPath("/world/contentdb/templates/regular/_core/templates.gas"));
 
     final InputStream aspectData = tankManager.getFileByPath("/art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_mainmenu.asp");
     final Aspect aspect = AspectLoader.load(aspectData);

@@ -1,19 +1,17 @@
 package lofimodding.opensiege.formats.gas;
 
-import it.unimi.dsi.fastutil.floats.FloatArrayList;
-import it.unimi.dsi.fastutil.floats.FloatList;
 import lofimodding.opensiege.world.WorldPos;
-import org.joml.Vector2f;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 
 import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -26,32 +24,22 @@ public final class GasLoader {
   private static final Reader READ_HEADER = new ReadHeader();
   private static final Reader READ_BRACE = new ReadChar('{') {
     @Override
-    public boolean read(final StateManager stateManager) {
-      final boolean val = super.read(stateManager);
-
-      if(val) {
-        stateManager.push();
-      }
-
-      return val;
+    public void read(final StateManager stateManager) throws GasParserException {
+      super.read(stateManager);
+      stateManager.push();
     }
   };
   private static final Reader READ_CLOSE = new ReadChar('}') {
     @Override
-    public boolean read(final StateManager stateManager) {
-      final boolean val = super.read(stateManager);
+    public void read(final StateManager stateManager) throws GasParserException {
+      super.read(stateManager);
+      stateManager.pop();
 
-      if(val) {
-        stateManager.pop();
-
-        if(stateManager.current.size() == 1) {
-          stateManager.stop();
-        } else {
-          stateManager.changeState(READ_PROPERTY_OR_HEADER_STATE);
-        }
+      if(stateManager.current.size() == 1) {
+        stateManager.stop();
+      } else {
+        stateManager.changeState(READ_PROPERTY_OR_HEADER_STATE);
       }
-
-      return val;
     }
   };
   private static final Reader READ_EQUAL = new ReadChar('=');
@@ -71,11 +59,15 @@ public final class GasLoader {
   private static final State READ_FLOAT_VALUE_STATE = new State(READ_FLOAT_VALUE, READ_SEMICOLON);
   private static final State READ_HEX_VALUE_STATE = new State(READ_HEX_VALUE, READ_SEMICOLON);
 
-  public static void load(final InputStream file) {
+  public static Map<String, Object> load(final InputStream file) {
     final BufferedReader reader = new BufferedReader(new InputStreamReader(file));
 
     final StringBuilder builder = new StringBuilder();
-    reader.lines().forEach(line -> builder.append(line).append('\n'));
+    final List<String> lines = new ArrayList<>();
+    reader.lines().forEach(line -> {
+      lines.add(line);
+      builder.append(line).append('\n');
+    });
 
     final String gas = builder.toString();
 
@@ -84,11 +76,27 @@ public final class GasLoader {
     outer:
     while(stateManager.hasMore()) {
       for(final Reader r : stateManager.state.readers) {
-        stateManager.skipWhitespace();
+        stateManager.skipWhitespaceAndComments();
 
-        if(!r.read(stateManager)) {
-          System.err.println("Failed to load gas " + stateManager.index);
-          return;
+        final int index = stateManager.index;
+
+        try {
+          r.read(stateManager);
+        } catch(final GasParserException e) {
+          int charsLeft = index;
+          int lineNumber;
+          for(lineNumber = 0; lineNumber < lines.size(); lineNumber++) {
+            final String line = lines.get(lineNumber);
+            if(charsLeft < line.length()) {
+              break;
+            }
+
+            charsLeft -= line.length();
+          }
+
+          System.err.println("Failed to load gas - line " + (lineNumber - 1) + " char " + charsLeft + ": " + e.getMessage() + ", got " + stateManager.readUntil(c -> c == '\r' || c == '\n'));
+          e.printStackTrace();
+          return Map.of();
         }
 
         if(stateManager.stop) {
@@ -104,25 +112,48 @@ public final class GasLoader {
         break;
       }
     }
+
+    return stateManager.properties;
   }
 
   private static Reader or(final State... states) {
     return stateManager -> {
+      String[] errors = null;
+
       outer:
       for(final State state : states) {
-        for(final Reader reader : state.readers) {
-          stateManager.skipWhitespace();
+        for(int i = 0; i < state.readers.length; i++) {
+          final Reader reader = state.readers[i];
+          stateManager.skipWhitespaceAndComments();
 
-          if(!reader.read(stateManager)) {
+          try {
+            reader.read(stateManager);
+          } catch(final GasParserException e) {
+            if(errors == null) {
+              errors = new String[states.length];
+            }
+
+            errors[i] = e.getMessage();
             continue outer;
           }
         }
 
-        return true;
+        return;
       }
 
-      return false;
+      final String error;
+      if(errors != null) {
+        error = "Expected one of the following: " + String.join("; ", errors);
+      } else {
+        error = "An unknown error occurred.";
+      }
+
+      throw new GasParserException(error);
     };
+  }
+
+  private interface CharPredicate {
+    boolean test(final char c);
   }
 
   private static final class StateManager {
@@ -188,14 +219,14 @@ public final class GasLoader {
       return this.gas.substring(this.index, this.index + length);
     }
 
-    public String readUntil(final char c) {
+    public String readUntil(final CharPredicate until) {
       final int oldMark = this.mark;
       int at = -1;
 
       this.mark();
 
       while(this.hasMore()) {
-        if(this.read() == c) {
+        if(until.test(this.read())) {
           at = this.index;
           break;
         }
@@ -211,72 +242,96 @@ public final class GasLoader {
       }
 
       return this.read(at - this.index);
+    }
+
+    public String readUntil(final String until) {
+      final int oldMark = this.mark;
+      int at = -1;
+
+      this.mark();
+
+      while(this.hasMore()) {
+        this.skipUntil(c -> c == until.charAt(0));
+
+        if(this.read(until.length()).equals(until)) {
+          at = this.index;
+          break;
+        }
+
+        this.advance();
+      }
+
+      this.reset();
+      this.mark = oldMark;
+
+      if(at == -1) {
+        return "";
+      }
+
+      return this.read(at - this.index);
+    }
+
+    public String readUntil(final char c) {
+      return this.readUntil(c1 -> c1 == c);
     }
 
     public String readKey() {
-      final int oldMark = this.mark;
-      int at = -1;
-
-      this.mark();
-
-      while(this.hasMore()) {
-        final char c = this.read();
-
-        if((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && c != '_' && (c < '0' || c > '9')) {
-          at = this.index;
-          break;
-        }
-
-        this.advance();
-      }
-
-      this.reset();
-      this.mark = oldMark;
-
-      if(at == -1) {
-        return "";
-      }
-
-      return this.read(at - this.index);
+      return this.readUntil(c -> (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_');
     }
 
     public String readValue() {
-      final int oldMark = this.mark;
-      int at = -1;
+      return this.readUntil(c -> (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '.');
+    }
 
+    public void skipUntil(final CharPredicate until) {
+      while(this.hasMore()) {
+        if(until.test(this.read())) {
+          break;
+        }
+
+        this.advance();
+      }
+    }
+
+    public void skipUntil(final String until) {
+      final int mark = this.mark;
       this.mark();
 
       while(this.hasMore()) {
-        final char c = this.read();
+        this.skipUntil(c -> c == until.charAt(0));
 
-        if((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '.') {
-          at = this.index;
-          break;
+        if(this.read(until.length()).equals(until)) {
+          this.advance(until.length());
+          return;
         }
 
         this.advance();
       }
 
       this.reset();
-      this.mark = oldMark;
-
-      if(at == -1) {
-        return "";
-      }
-
-      return this.read(at - this.index);
+      this.mark = mark;
     }
 
-    public void skipWhitespace() {
-      while(true) {
-        final char c = this.read();
+    public void skipWhitespaceAndComments() {
+      int currentIndex;
 
-        if(c != ' ' && c != '\t' && c != '\n' && c != '\r') {
-          break;
+      // Repeat operation until we no longer find whitespace or comments
+      do {
+        currentIndex = this.index;
+
+        // Skip whitespace
+        this.skipUntil(c -> c != ' ' && c != '\t' && c != '\n' && c != '\r');
+
+        // Skip line comments
+        if("//".equals(this.read(2))) {
+          this.skipUntil(c -> c == '\n' || c == '\r');
         }
 
-        this.advance();
-      }
+        // Skip block comments
+        if("/*".equals(this.read(2))) {
+          this.skipUntil("*/");
+        }
+      } while(currentIndex != this.index);
     }
 
     public void mark() {
@@ -307,12 +362,12 @@ public final class GasLoader {
   }
 
   private interface Reader {
-    boolean read(final StateManager stateManager);
+    void read(final StateManager stateManager) throws GasParserException;
   }
 
   private static class ReadHeader implements Reader {
     @Override
-    public boolean read(final StateManager stateManager) {
+    public void read(final StateManager stateManager) throws GasParserException {
       if(stateManager.read() == '[') {
         stateManager.advance();
         final String header = stateManager.readUntil(']');
@@ -321,11 +376,11 @@ public final class GasLoader {
           stateManager.setHeader(header);
           stateManager.advance(header.length() + 1);
           stateManager.changeState(READ_PROPERTY_OR_HEADER_STATE);
-          return true;
+          return;
         }
       }
 
-      return false;
+      throw new GasParserException("Expected header");
     }
   }
 
@@ -337,22 +392,22 @@ public final class GasLoader {
     }
 
     @Override
-    public boolean read(final StateManager stateManager) {
+    public void read(final StateManager stateManager) throws GasParserException {
       if(stateManager.read() == this.c) {
         stateManager.advance();
-        return true;
+        return;
       }
 
-      return false;
+      throw new GasParserException("Expected " + this.c);
     }
   }
 
   private static class ReadKey implements Reader {
     @Override
-    public boolean read(final StateManager stateManager) {
+    public void read(final StateManager stateManager) throws GasParserException {
       final String type = stateManager.readKey();
       stateManager.advance(type.length());
-      stateManager.skipWhitespace();
+      stateManager.skipWhitespaceAndComments();
 
       final String key;
       final State newState;
@@ -383,20 +438,18 @@ public final class GasLoader {
       }
 
       if(key.isEmpty()) {
-        return false;
+        throw new GasParserException("Expected key");
       }
 
       stateManager.setKey(key);
       stateManager.changeState(newState);
-      return true;
     }
   }
 
   private static class ReadValue implements Reader {
     @Override
-    public boolean read(final StateManager stateManager) {
+    public void read(final StateManager stateManager) throws GasParserException {
       Object val;
-      FloatList floats = null;
 
       if(stateManager.read() == '"') {
         stateManager.advance();
@@ -415,13 +468,12 @@ public final class GasLoader {
 
               pos.setComponent(i, Float.parseFloat(s));
 
-              stateManager.skipWhitespace();
+              stateManager.skipWhitespaceAndComments();
               if(stateManager.read() != ',') {
-                System.err.println("Invalid WorldPos " + wp);
-                return false;
+                throw new GasParserException("Invalid WorldPos");
               }
               stateManager.advance();
-              stateManager.skipWhitespace();
+              stateManager.skipWhitespaceAndComments();
             }
 
             final String s = stateManager.readValue();
@@ -433,12 +485,10 @@ public final class GasLoader {
                 break;
               } catch(final NumberFormatException ignored) {}
 
-              System.err.println("Invalid hex " + wp);
-              return false;
+              throw new GasParserException("Invalid hex");
             }
 
-            System.err.println("Missing node ID " + wp);
-            return false;
+            throw new GasParserException("Missing node ID");
           }
 
           final String str = stateManager.readValue();
@@ -455,35 +505,13 @@ public final class GasLoader {
               break;
             } catch(final NumberFormatException ignored) {}
 
-            System.err.println("Invalid hex " + str);
-            return false;
+            throw new GasParserException("Invalid hex");
           }
 
           try {
-            final float f = Float.parseFloat(str);
-
-            stateManager.skipWhitespace();
-
-            if(stateManager.read() != ',') {
-              val = f;
-              break;
-            }
-
-            // It's a world position (x, y, z, snode)
-            if(floats == null) {
-              floats = new FloatArrayList();
-            }
-
-            floats.add(f);
-            stateManager.advance();
-            stateManager.skipWhitespace();
-            continue;
+            val = Float.parseFloat(str);
+            break;
           } catch(final NumberFormatException ignored) { }
-
-          if(floats != null) {
-            System.err.println("Non-float in vec");
-            return false;
-          }
 
           if("true".equals(str) || "false".equals(str)) {
             val = Boolean.parseBoolean(str);
@@ -500,33 +528,18 @@ public final class GasLoader {
             break;
           }
 
-          return false;
+          throw new GasParserException("Expected value");
         }
       }
 
-      if(floats != null) {
-        if(floats.size() == 2) {
-          stateManager.setValue(new Vector2f(floats.getFloat(0), floats.getFloat(1)));
-        } else if(floats.size() == 3) {
-          stateManager.setValue(new Vector3f(floats.getFloat(0), floats.getFloat(1), floats.getFloat(2)));
-        } else if(floats.size() == 4) {
-          stateManager.setValue(new Vector4f(floats.getFloat(0), floats.getFloat(1), floats.getFloat(2), floats.getFloat(2)));
-        } else {
-          System.err.println("Wrong number of floats in vec - " + floats.size());
-          return false;
-        }
-      } else {
-        stateManager.setValue(val);
-      }
-
+      stateManager.setValue(val);
       stateManager.changeState(READ_PROPERTY_OR_HEADER_STATE);
-      return true;
     }
   }
 
   private static class ReadBoolValue implements Reader {
     @Override
-    public boolean read(final StateManager stateManager) {
+    public void read(final StateManager stateManager) throws GasParserException {
       final String value = stateManager.readValue();
       stateManager.advance(value.length());
 
@@ -535,18 +548,16 @@ public final class GasLoader {
       } else if("false".equals(value)) {
         stateManager.setValue(false);
       } else {
-        System.err.println("Invalid boolean value " + value);
-        return false;
+        throw new GasParserException("Expected boolean value");
       }
 
       stateManager.changeState(READ_PROPERTY_OR_HEADER_STATE);
-      return true;
     }
   }
 
   private static class ReadFloatValue implements Reader {
     @Override
-    public boolean read(final StateManager stateManager) {
+    public void read(final StateManager stateManager) throws GasParserException {
       final String value = stateManager.readValue();
       stateManager.advance(value.length());
 
@@ -554,19 +565,17 @@ public final class GasLoader {
       try {
         val = Float.parseFloat(value);
       } catch(final NumberFormatException e) {
-        System.err.println("Invalid float value " + value);
-        return false;
+        throw new GasParserException("Expected float value");
       }
 
       stateManager.setValue(val);
       stateManager.changeState(READ_PROPERTY_OR_HEADER_STATE);
-      return true;
     }
   }
 
   private static class ReadHexValue implements Reader {
     @Override
-    public boolean read(final StateManager stateManager) {
+    public void read(final StateManager stateManager) throws GasParserException {
       final String value = stateManager.readValue();
       stateManager.advance(value.length());
 
@@ -574,13 +583,11 @@ public final class GasLoader {
       try {
         val = Integer.parseInt(value, 16);
       } catch(final NumberFormatException e) {
-        System.err.println("Invalid hex value " + value);
-        return false;
+        throw new GasParserException("Expected hex value");
       }
 
       stateManager.setValue(val);
       stateManager.changeState(READ_PROPERTY_OR_HEADER_STATE);
-      return true;
     }
   }
 
