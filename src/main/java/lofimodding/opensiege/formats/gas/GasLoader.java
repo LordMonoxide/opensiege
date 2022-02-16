@@ -22,7 +22,7 @@ public final class GasLoader {
   private GasLoader() { }
 
   private static final Pattern WORLD_POS_REGEX = Pattern.compile("\\d+\\.\\d+\\s*,\\s*\\d+\\.\\d+\\s*,\\s*\\d+\\.\\d+\\s*,\\s*0x[\\da-z]+\\s*");
-  private static final Pattern TIME_REGEX = Pattern.compile("/(\\d+)h(\\d+)m/");
+  private static final Pattern TIME_REGEX = Pattern.compile("(\\d+)h(\\d+)m");
 
   private static final Reader READ_HEADER = new ReadHeader();
   private static final Reader READ_BRACE = new ReadChar('{') {
@@ -475,6 +475,7 @@ public final class GasLoader {
   private static class ReadValue implements Reader {
     @Override
     public void read(final StateManager stateManager) throws GasParserException {
+      @Nullable
       Object val;
 
       if(stateManager.read() == '"') {
@@ -524,6 +525,11 @@ public final class GasLoader {
 
           final String str = stateManager.readValue();
           stateManager.advance(str.length());
+
+          if("none".equals(str)) {
+            val = null;
+            break;
+          }
 
           try {
             val = Integer.parseInt(str);

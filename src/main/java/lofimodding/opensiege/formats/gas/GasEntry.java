@@ -20,6 +20,10 @@ public class GasEntry {
     return this.children.get(key);
   }
 
+  public Object get(final String key) {
+    return this.values.get(key);
+  }
+
   public String getString(final String key) {
     return (String)this.values.get(key);
   }

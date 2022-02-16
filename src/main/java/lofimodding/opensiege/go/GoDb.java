@@ -4,6 +4,7 @@ import lofimodding.opensiege.formats.gas.GasEntry;
 import org.reflections8.Reflections;
 import org.reflections8.util.ClasspathHelper;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,7 +15,7 @@ import java.util.regex.Pattern;
 public class GoDb {
   private static final Pattern OBJECT_KEY = Pattern.compile("t:(\\w+),n:(\\w+)");
 
-  private final Map<String, GoLoader<?>> loaders = new HashMap<>();
+  private final Map<String, Class<? extends GameObject>> idToClass = new HashMap<>();
   private final Map<Class<?>, String> classToId = new HashMap<>();
   private final Map<String, Map<String, GameObject>> objects = new HashMap<>();
 
@@ -27,15 +28,10 @@ public class GoDb {
     for(final Class<?> cls : types) {
       final GoType type = cls.getAnnotation(GoType.class);
 
-      try {
-        this.loaders.put(type.type(), type.loader().getConstructor().newInstance());
-      } catch(final InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-        throw new RuntimeException(e);
-      }
-
+      this.idToClass.put(type.type(), (Class<? extends GameObject>)cls);
       this.classToId.put(cls, type.type());
 
-      System.out.println(" - " + type.type() + " -> " + type.loader().getSimpleName());
+      System.out.println(" - " + type.type() + " -> " + cls.getSimpleName());
     }
   }
 
@@ -44,16 +40,54 @@ public class GoDb {
       final Matcher matcher = OBJECT_KEY.matcher(entry.getKey());
 
       if(matcher.matches()) {
+        final GasEntry data = entry.getValue();
         final String type = matcher.group(1);
         final String name = matcher.group(2);
 
-        final GoLoader<?> loader = this.loaders.get(type);
+        final Class<? extends GameObject> cls = this.idToClass.get(type);
 
-        if(loader == null) {
-          throw new RuntimeException("No loader defined for type " + type);
+        if(cls == null) {
+          throw new RuntimeException("No class defined for type " + type);
         }
 
-        this.objects.computeIfAbsent(type, key -> new HashMap<>()).put(name, loader.load(name, entry.getValue()));
+        final GameObject inst;
+        try {
+          inst = cls.getConstructor().newInstance();
+        } catch(final InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+          throw new RuntimeException(e);
+        }
+
+        this.fillValues(data, cls, inst);
+
+        this.objects.computeIfAbsent(type, key -> new HashMap<>()).put(name, inst);
+      }
+    }
+  }
+
+  private void fillValues(final GasEntry data, final Class<?> cls, final Object inst) {
+    for(final Field field : cls.getDeclaredFields()) {
+      final GoValue value = field.getAnnotation(GoValue.class);
+
+      if(value != null) {
+        field.setAccessible(true);
+
+        final String name = value.name().isEmpty() ? field.getName() : value.name();
+        final GasEntry child = data.getChild(name);
+
+        if(child != null) {
+          try {
+            field.set(inst, field.getType().getConstructor().newInstance());
+            this.fillValues(child, field.getType(), field.get(inst));
+          } catch(final IllegalAccessException | NoSuchMethodException | InstantiationException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+          }
+        } else {
+          try {
+            field.set(inst, data.get(name));
+          } catch(final IllegalAccessException e) {
+            throw new RuntimeException(e);
+          }
+        }
       }
     }
   }
