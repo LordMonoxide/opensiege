@@ -1,5 +1,6 @@
 package lofimodding.opensiege.formats.gas;
 
+import lofimodding.opensiege.go.GoId;
 import lofimodding.opensiege.world.WorldPos;
 import org.joml.Vector3f;
 
@@ -7,19 +8,21 @@ import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class GasLoader {
   private GasLoader() { }
 
   private static final Pattern WORLD_POS_REGEX = Pattern.compile("\\d+\\.\\d+\\s*,\\s*\\d+\\.\\d+\\s*,\\s*\\d+\\.\\d+\\s*,\\s*0x[\\da-z]+\\s*");
-  private static final Pattern TIME_REGEX = Pattern.compile("/\\d+h\\d+m/");
+  private static final Pattern TIME_REGEX = Pattern.compile("/(\\d+)h(\\d+)m/");
 
   private static final Reader READ_HEADER = new ReadHeader();
   private static final Reader READ_BRACE = new ReadChar('{') {
@@ -61,7 +64,7 @@ public final class GasLoader {
   private static final State READ_HEX_VALUE_STATE = new State(READ_HEX_VALUE, READ_SEMICOLON);
   private static final State READ_INT_VALUE_STATE = new State(READ_INT_VALUE, READ_SEMICOLON);
 
-  public static Map<String, Object> load(final InputStream file) {
+  public static GasEntry load(final InputStream file) {
     final BufferedReader reader = new BufferedReader(new InputStreamReader(file));
 
     final StringBuilder builder = new StringBuilder();
@@ -98,7 +101,7 @@ public final class GasLoader {
 
           System.err.println("Failed to load gas - line " + (lineNumber - 1) + " char " + charsLeft + ": " + e.getMessage() + ", got " + stateManager.readUntil(c -> c == '\r' || c == '\n'));
           e.printStackTrace();
-          return Map.of();
+          return new GasEntry(new HashMap<>(), new HashMap<>());
         }
 
         if(stateManager.stop) {
@@ -115,7 +118,22 @@ public final class GasLoader {
       }
     }
 
-    return stateManager.properties;
+    return buildEntry(stateManager.properties);
+  }
+
+  private static GasEntry buildEntry(final Map<String, Object> map) {
+    final Map<String, GasEntry> children = new HashMap<>();
+    final Map<String, Object> values = new HashMap<>();
+
+    for(final Map.Entry<String, Object> entry : map.entrySet()) {
+      if(entry.getValue() instanceof final Map child) {
+        children.put(entry.getKey(), buildEntry(child));
+      } else {
+        values.put(entry.getKey(), entry.getValue());
+      }
+    }
+
+    return new GasEntry(children, values);
   }
 
   private static Reader or(final State... states) {
@@ -531,13 +549,17 @@ public final class GasLoader {
             break;
           }
 
-          if(TIME_REGEX.matcher(str).matches()) {
-            val = str; //TODO
+          final Matcher timeMatcher = TIME_REGEX.matcher(str);
+          if(timeMatcher.matches()) {
+            final int hours = Integer.parseInt(timeMatcher.group(1));
+            final int minutes = Integer.parseInt(timeMatcher.group(2));
+
+            val = LocalTime.of(hours, minutes);
             break;
           }
 
           if(!str.isEmpty()) {
-            val = str; //TODO identifier
+            val = new GoId(str);
             break;
           }
 

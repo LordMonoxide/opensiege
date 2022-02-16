@@ -2,6 +2,7 @@ package lofimodding.opensiege;
 
 import lofimodding.opensiege.formats.aspect.Aspect;
 import lofimodding.opensiege.formats.aspect.AspectLoader;
+import lofimodding.opensiege.formats.gas.GasEntry;
 import lofimodding.opensiege.formats.gas.GasLoader;
 import lofimodding.opensiege.formats.raw.RawTexture;
 import lofimodding.opensiege.formats.raw.RawTextureLoader;
@@ -12,6 +13,7 @@ import lofimodding.opensiege.gfx.QuaternionCamera;
 import lofimodding.opensiege.gfx.Shader;
 import lofimodding.opensiege.gfx.Texture;
 import lofimodding.opensiege.gfx.Window;
+import lofimodding.opensiege.go.GoDb;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 
@@ -19,11 +21,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
@@ -67,7 +67,7 @@ public class Game {
 
   private boolean wireframeMode;
 
-  public Game(final Path installPath) throws IOException {
+  public Game(final TankManager tankManager, final GoDb goDb, final String mapId) throws IOException {
     this.window = new Window("OpenSiege", WINDOW_WIDTH, WINDOW_HEIGHT);
     this.ctx = new Context(this.window, new QuaternionCamera(0.0f, 3.0f, 10.0f));
     this.ctx.setClearColour(0.0f, 0.0f, 0.0f);
@@ -86,16 +86,9 @@ public class Game {
       basicShader.new UniformInt("tex[" + i + ']').set(i);
     }
 
-    final TankManager tankManager = new TankManager(installPath);
+    final GasEntry templates = GasLoader.load(tankManager.getFileByPath("/world/contentdb/templates/regular/_core/templates.gas"));
 
-    System.out.println("Available maps:");
-    for(final String child : tankManager.getSubdirectories("/world/maps")) {
-      final Map<String, Object> map = GasLoader.load(tankManager.getFileByPath("/world/maps/" + child + "/main.gas"));
-      final Map<String, Object> data = (Map<String, Object>)map.get("t:map,n:map");
-      System.out.println(data.get("screen_name") + " - " + data.get("description"));
-    }
-
-    GasLoader.load(tankManager.getFileByPath("/world/contentdb/templates/regular/_core/templates.gas"));
+    goDb.addObject(templates);
 
     final InputStream aspectData = tankManager.getFileByPath("/art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_mainmenu.asp");
     final Aspect aspect = AspectLoader.load(aspectData);
