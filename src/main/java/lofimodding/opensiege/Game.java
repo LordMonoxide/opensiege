@@ -5,7 +5,6 @@ import lofimodding.opensiege.formats.aspect.AspectLoader;
 import lofimodding.opensiege.formats.gas.GasLoader;
 import lofimodding.opensiege.formats.raw.RawTexture;
 import lofimodding.opensiege.formats.raw.RawTextureLoader;
-import lofimodding.opensiege.formats.tank.TankManager;
 import lofimodding.opensiege.gfx.Context;
 import lofimodding.opensiege.gfx.Mesh;
 import lofimodding.opensiege.gfx.QuaternionCamera;
@@ -21,6 +20,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,7 +68,7 @@ public class Game {
 
   private boolean wireframeMode;
 
-  public Game(final TankManager tankManager, final GoDb goDb, final String mapId) throws IOException {
+  public Game(final Path tankRoot, final GoDb goDb, final String mapId) throws IOException {
     this.window = new Window("OpenSiege", WINDOW_WIDTH, WINDOW_HEIGHT);
     this.ctx = new Context(this.window, new QuaternionCamera(0.0f, 3.0f, 10.0f));
     this.ctx.setClearColour(0.0f, 0.0f, 0.0f);
@@ -88,16 +89,19 @@ public class Game {
 
     final World map = goDb.get(World.class, "map");
 
-    goDb.addObject(GasLoader.load(tankManager.getFileByPath("/world/maps/" + map.getName() + "/regions/" + map.getStartRegionName() + "/main.gas")));
-    goDb.addObject(GasLoader.load(tankManager.getFileByPath("/world/maps/" + map.getName() + "/regions/" + map.getStartRegionName() + "/terrain_nodes/nodes.gas")));
+    final Path mapPath = tankRoot.resolve("world").resolve("maps").resolve(map.getName());
+    final Path regionPath = mapPath.resolve("regions").resolve(map.getStartRegionName());
 
-    final InputStream aspectData = tankManager.getFileByPath("/art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_mainmenu.asp");
+    goDb.addObject(GasLoader.load(Files.newInputStream(regionPath.resolve("main.gas"))));
+    goDb.addObject(GasLoader.load(Files.newInputStream(regionPath.resolve("terrain_nodes").resolve("nodes.gas"))));
+
+    final InputStream aspectData = Files.newInputStream(tankRoot.resolve("art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_mainmenu.asp"));
     final Aspect aspect = AspectLoader.load(aspectData);
     final List<Texture> textures = new ArrayList<>();
 
     for(final String texture : aspect.textures()) {
       try {
-        final RawTexture raw = RawTextureLoader.load(tankManager.getFileByPath("/art/bitmaps/gui/front_end/menus/main/" + texture + ".raw"));
+        final RawTexture raw = RawTextureLoader.load(Files.newInputStream(tankRoot.resolve("art/bitmaps/gui/front_end/menus/main/" + texture + ".raw")));
         textures.add(Texture.create(builder -> {
           final ByteBuffer buffer = BufferUtils.createByteBuffer(raw.data().length);
           buffer.put(raw.data());

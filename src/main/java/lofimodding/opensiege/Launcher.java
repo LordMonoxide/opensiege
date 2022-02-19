@@ -2,14 +2,14 @@ package lofimodding.opensiege;
 
 import lofimodding.opensiege.formats.gas.GasEntry;
 import lofimodding.opensiege.formats.gas.GasLoader;
-import lofimodding.opensiege.formats.tank.TankFileSystem;
-import lofimodding.opensiege.formats.tank.TankFileSystemProvider;
-import lofimodding.opensiege.formats.tank.TankManager;
 import lofimodding.opensiege.go.GoDb;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -43,33 +43,26 @@ public final class Launcher {
     }
 
     final ExecutorService exec = Executors.newCachedThreadPool();
-    final Future<TankManager> tankManagerFuture = exec.submit(() -> new TankManager(path));
+    final Future<Path> tankFuture = exec.submit(() -> Paths.get(new URI("tank:" + URLEncoder.encode(path.toAbsolutePath().normalize().toString(), StandardCharsets.UTF_8) + "!/")));
     final Future<GoDb> goDbFuture = exec.submit(GoDb::new);
 
-    final TankManager tankManager = tankManagerFuture.get();
+    final Path p = tankFuture.get();
     final GoDb go = goDbFuture.get();
 
     exec.shutdown();
-
-    final TankFileSystem fs = new TankFileSystem(new TankFileSystemProvider(), tankManager, null);
-    final Path p = fs.getPath("/");
-
-    Files.newDirectoryStream(p).forEach(f -> {
-      System.out.println(f);
-    });
-
-    Path r = Paths.get(URI.create("tank:" + path.toString().replace('\\', '/') + "!/"));;
 
     final Map<String, String> maps = new HashMap<>();
     final Map<String, GasEntry> mapGas = new HashMap<>();
 
     System.out.println("Searching for maps...");
 
-    for(final String child : tankManager.getSubdirectories("/world/maps")) {
-      final GasEntry root = GasLoader.load(tankManager.getFileByPath("/world/maps/" + child + "/main.gas"));
-      final GasEntry data = root.getChild("t:map,n:map");
-      maps.put(child, data.getString("screen_name") + " - " + data.getString("description"));
-      mapGas.put(child, root);
+    try(final DirectoryStream<Path> ds = Files.newDirectoryStream(p.resolve("world/maps"))) {
+      for(final Path child : ds) {
+        final GasEntry root = GasLoader.load(Files.newInputStream(child.resolve("main.gas")));
+        final GasEntry data = root.getChild("t:map,n:map");
+        maps.put(child.getFileName().toString(), data.getString("screen_name") + " - " + data.getString("description"));
+        mapGas.put(child.getFileName().toString(), root);
+      }
     }
 
     System.out.println();
@@ -102,6 +95,6 @@ public final class Launcher {
 
     go.addObject(mapGas.get(mapId));
 
-    new Game(tankManager, go, mapId);
+    new Game(p, go, mapId);
   }
 }

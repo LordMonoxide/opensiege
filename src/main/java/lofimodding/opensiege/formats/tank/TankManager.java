@@ -2,7 +2,6 @@ package lofimodding.opensiege.formats.tank;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -77,7 +76,7 @@ public class TankManager {
     return this.paths.keySet();
   }
 
-  public InputStream getFileByPath(final String filename) throws IOException {
+  public byte[] getFileByPath(final String filename) throws IOException {
     final Tank tank = this.paths.get(filename);
 
     if(tank == null) {

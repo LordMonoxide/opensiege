@@ -1,5 +1,6 @@
 package lofimodding.opensiege.formats.tank;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -224,13 +225,18 @@ public class TankFileSystem extends FileSystem {
     return new DirectoryStream<>() {
       @Override
       public Iterator<Path> iterator() {
-        return TankFileSystem.this.tankManager.getSubdirectories(dir.toAbsolutePath().normalize().toString()).stream().map(TankFileSystem.this::getPath).filter(entry -> {
-          try {
-            return filter.accept(entry);
-          } catch(final IOException e) {
-            throw new RuntimeException(e);
-          }
-        }).iterator();
+        return TankFileSystem.this.tankManager
+          .getSubdirectories(dir.toAbsolutePath().normalize().toString())
+          .stream()
+          .map(dir::resolve)
+          .filter(entry -> {
+            try {
+              return filter.accept(entry);
+            } catch(final IOException e) {
+              throw new RuntimeException(e);
+            }
+          })
+          .iterator();
       }
 
       @Override
@@ -239,15 +245,15 @@ public class TankFileSystem extends FileSystem {
     };
   }
 
+  public InputStream newInputStream(final Path path, final OpenOption[] options) throws IOException {
+    return new ByteArrayInputStream(this.tankManager.getFileByPath(path.toAbsolutePath().normalize().toString()));
+  }
+
   public <A extends BasicFileAttributes> SeekableByteChannel newByteChannel(final Path path, final Set<? extends OpenOption> options, final FileAttribute<?>[] attrs) throws IOException {
-    final Object content = this.loadContent(path.toAbsolutePath().toString());
-    if(content instanceof List) {
-      throw new IOException("Is a directory");
-    }
-    final String base64 = ((Map<String, String>)content).get("content");
-    final byte[] data = null;//DatatypeConverter.parseBase64Binary(base64);
+    final byte[] data = this.tankManager.getFileByPath(path.toAbsolutePath().normalize().toString());
+
     return new SeekableByteChannel() {
-      long position;
+      private long position;
 
       @Override
       public int read(final ByteBuffer dst) {
@@ -328,7 +334,7 @@ public class TankFileSystem extends FileSystem {
   }
 
   private Object loadContent(final String path) throws IOException {
-    Object content = this.contents.get(path);
+    final Object content = this.contents.get(path);
     return content;
   }
 

@@ -1,8 +1,11 @@
 package lofimodding.opensiege.formats.tank;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessMode;
 import java.nio.file.CopyOption;
 import java.nio.file.DirectoryStream;
@@ -47,7 +50,7 @@ public class TankFileSystemProvider extends FileSystemProvider {
         throw new FileSystemAlreadyExistsException(schemeSpecificPart);
       }
 
-      fileSystem = new TankFileSystem(this, new TankManager(Paths.get(schemeSpecificPart)), env);
+      fileSystem = new TankFileSystem(this, new TankManager(Paths.get(URLDecoder.decode(schemeSpecificPart, StandardCharsets.UTF_8))), env);
       this.fileSystems.put(schemeSpecificPart, fileSystem);
       return fileSystem;
     }
@@ -115,42 +118,50 @@ public class TankFileSystemProvider extends FileSystemProvider {
   }
 
   @Override
-  public void createDirectory(final Path dir, final FileAttribute<?>... attrs) throws IOException {
+  public InputStream newInputStream(Path path, OpenOption... options) throws IOException {
+    if(!(path instanceof TankPath)) {
+      throw new ProviderMismatchException();
+    }
+    return ((TankPath)path).getFileSystem().newInputStream(path, options);
+  }
+
+  @Override
+  public void createDirectory(final Path dir, final FileAttribute<?>... attrs) {
     throw new ReadOnlyFileSystemException();
   }
 
   @Override
-  public void delete(final Path path) throws IOException {
+  public void delete(final Path path) {
     throw new ReadOnlyFileSystemException();
   }
 
   @Override
-  public void copy(final Path source, final Path target, final CopyOption... options) throws IOException {
+  public void copy(final Path source, final Path target, final CopyOption... options) {
     throw new ReadOnlyFileSystemException();
   }
 
   @Override
-  public void move(final Path source, final Path target, final CopyOption... options) throws IOException {
+  public void move(final Path source, final Path target, final CopyOption... options) {
     throw new ReadOnlyFileSystemException();
   }
 
   @Override
-  public boolean isSameFile(final Path path, final Path path2) throws IOException {
+  public boolean isSameFile(final Path path, final Path path2) {
     return path.toAbsolutePath().equals(path2.toAbsolutePath());
   }
 
   @Override
-  public boolean isHidden(final Path path) throws IOException {
+  public boolean isHidden(final Path path) {
     return false;
   }
 
   @Override
-  public FileStore getFileStore(final Path path) throws IOException {
+  public FileStore getFileStore(final Path path) {
     return null;
   }
 
   @Override
-  public void checkAccess(final Path path, final AccessMode... modes) throws IOException {
+  public void checkAccess(final Path path, final AccessMode... modes) {
 
   }
 
@@ -168,12 +179,12 @@ public class TankFileSystemProvider extends FileSystemProvider {
   }
 
   @Override
-  public Map<String, Object> readAttributes(final Path path, final String attributes, final LinkOption... options) throws IOException {
+  public Map<String, Object> readAttributes(final Path path, final String attributes, final LinkOption... options) {
     return null;
   }
 
   @Override
-  public void setAttribute(final Path path, final String attribute, final Object value, final LinkOption... options) throws IOException {
+  public void setAttribute(final Path path, final String attribute, final Object value, final LinkOption... options) {
     throw new ReadOnlyFileSystemException();
   }
 }

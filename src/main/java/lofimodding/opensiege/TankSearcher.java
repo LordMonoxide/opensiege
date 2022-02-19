@@ -3,7 +3,6 @@ package lofimodding.opensiege;
 import lofimodding.opensiege.formats.tank.TankManager;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,8 +23,7 @@ public final class TankSearcher {
       }
 
       try {
-        final InputStream stream = tankManager.getFileByPath(filename);
-        final String data = new String(stream.readAllBytes());
+        final String data = new String(tankManager.getFileByPath(filename));
 
         if(data.toLowerCase().contains(search)) {
           refs.add(filename);

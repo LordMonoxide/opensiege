@@ -2,19 +2,17 @@ package lofimodding.opensiege.formats.tank;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 
-import java.io.ByteArrayInputStream;
 import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
 public record Tank(Path path, TankHeader header, Int2ObjectMap<TankDirectoryEntry> directoryEntries, Int2ObjectMap<TankFileEntry> fileEntries, Map<String, TankFileEntry> paths) {
-  public InputStream getFileByPath(final String filename) throws IOException {
+  public byte[] getFileByPath(final String filename) throws IOException {
     //TODO file caching
 
     System.out.println("Extracting file " + filename);
@@ -31,7 +29,7 @@ public record Tank(Path path, TankHeader header, Int2ObjectMap<TankDirectoryEntr
       file.skip(this.header.dataOffset() + fileEntry.dataOffset());
       final byte[] data = new byte[fileEntry.entrySize()];
       file.read(data);
-      return new ByteArrayInputStream(data);
+      return data;
     }
 
     final byte[][] allData = new byte[fileEntry.compressionHeader().chunkHeaders().length][];
@@ -94,7 +92,7 @@ public record Tank(Path path, TankHeader header, Int2ObjectMap<TankDirectoryEntr
       dataIndex += chunk.length;
     }
 
-    return new ByteArrayInputStream(data);
+    return data;
   }
 
   @Override
