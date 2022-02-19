@@ -2,11 +2,14 @@ package lofimodding.opensiege;
 
 import lofimodding.opensiege.formats.gas.GasEntry;
 import lofimodding.opensiege.formats.gas.GasLoader;
+import lofimodding.opensiege.formats.tank.TankFileSystem;
+import lofimodding.opensiege.formats.tank.TankFileSystemProvider;
 import lofimodding.opensiege.formats.tank.TankManager;
 import lofimodding.opensiege.go.GoDb;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,6 +48,17 @@ public final class Launcher {
 
     final TankManager tankManager = tankManagerFuture.get();
     final GoDb go = goDbFuture.get();
+
+    exec.shutdown();
+
+    final TankFileSystem fs = new TankFileSystem(new TankFileSystemProvider(), tankManager, null);
+    final Path p = fs.getPath("/");
+
+    Files.newDirectoryStream(p).forEach(f -> {
+      System.out.println(f);
+    });
+
+    Path r = Paths.get(URI.create("tank:" + path.toString().replace('\\', '/') + "!/"));;
 
     final Map<String, String> maps = new HashMap<>();
     final Map<String, GasEntry> mapGas = new HashMap<>();

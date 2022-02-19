@@ -1,6 +1,5 @@
 package lofimodding.opensiege.formats.gas;
 
-import lofimodding.opensiege.go.GoId;
 import lofimodding.opensiege.world.WorldPos;
 import org.joml.Vector3f;
 
@@ -188,10 +187,12 @@ public final class GasLoader {
     private boolean stop;
 
     private String header;
+    private boolean headerList;
     private final Map<String, Object> properties = new HashMap<>();
     private final Deque<Map<String, Object>> current = new LinkedList<>();
     @Nullable
     private String key;
+    private boolean keyList;
 
     private StateManager(final String gas) {
       this.gas = gas;
@@ -199,19 +200,42 @@ public final class GasLoader {
     }
 
     public void setHeader(final String header) {
-      this.header = header;
+      if(header.endsWith("*")) {
+        this.header = header.substring(0, header.length() - 1);
+        this.headerList = true;
+      } else {
+        this.header = header;
+        this.headerList = false;
+      }
     }
 
     public void setKey(final String key) {
-      this.key = key;
+      if(key.endsWith("*")) {
+        this.key = key.substring(0, key.length() - 1);
+        this.keyList = true;
+      } else {
+        this.key = key;
+        this.keyList = false;
+      }
     }
 
-    public void setValue(final Object value) {
+    public void setValue(final Object value) throws GasParserException {
       if(this.key == null) {
         throw new IllegalStateException("Key must be set before value");
       }
 
-      this.current.element().put(this.key, value);
+      if(this.keyList) {
+        final Object obj = this.current.element().computeIfAbsent(this.key, key -> new ArrayList<>());
+
+        if(obj instanceof final List list) {
+          list.add(value);
+        } else {
+          throw new GasParserException("List value and non-list value have the same key: " + this.key);
+        }
+      } else {
+        this.current.element().put(this.key, value);
+      }
+
       this.key = null;
     }
 
@@ -362,13 +386,20 @@ public final class GasLoader {
       this.index = this.mark;
     }
 
-    public void push() {
-      if(this.current.element().containsKey(this.header)) {
-        throw new IllegalStateException("Key " + this.header + " already defined");
+    public void push() throws GasParserException {
+      if(this.current.element().containsKey(this.header) && !this.headerList) {
+        throw new GasParserException("Key " + this.header + " already defined");
       }
 
       final Map<String, Object> map = new HashMap<>();
-      this.current.element().put(this.header, map);
+
+      if(this.headerList) {
+        final List<Object> list = (List<Object>)this.current.element().computeIfAbsent(this.header, key -> new ArrayList<>());
+        list.add(map);
+      } else {
+        this.current.element().put(this.header, map);
+      }
+
       this.current.push(map);
     }
 
@@ -490,9 +521,9 @@ public final class GasLoader {
         val = new GasBracketType(str);
       } else {
         while(true) {
-          final String wp = stateManager.readUntil(';');
+          final String str = stateManager.readUntil(';').trim();
 
-          if(WORLD_POS_REGEX.matcher(wp).matches()) {
+          if(WORLD_POS_REGEX.matcher(str).matches()) {
             final Vector3f pos = new Vector3f();
             for(int i = 0; i < 3; i++) {
               final String s = stateManager.readValue();
@@ -513,7 +544,7 @@ public final class GasLoader {
 
             if(s.startsWith("0x")) {
               try {
-                val = new WorldPos(Long.parseLong(s.substring(2), 16), pos.x, pos.y, pos.z);
+                val = new WorldPos(Integer.parseUnsignedInt(s.substring(2), 16), pos.x, pos.y, pos.z);
                 break;
               } catch(final NumberFormatException ignored) {}
 
@@ -523,7 +554,6 @@ public final class GasLoader {
             throw new GasParserException("Missing node ID");
           }
 
-          final String str = stateManager.readValue();
           stateManager.advance(str.length());
 
           if("none".equals(str)) {
@@ -564,12 +594,8 @@ public final class GasLoader {
             break;
           }
 
-          if(!str.isEmpty()) {
-            val = new GoId(str);
-            break;
-          }
-
-          throw new GasParserException("Expected value");
+          val = str;
+          break;
         }
       }
 
@@ -622,7 +648,7 @@ public final class GasLoader {
 
       final int val;
       try {
-        val = Integer.parseInt(value, 16);
+        val = Integer.parseUnsignedInt(value.substring(2), 16);
       } catch(final NumberFormatException e) {
         throw new GasParserException("Expected hex value");
       }

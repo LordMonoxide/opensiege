@@ -57,33 +57,63 @@ public class GoDb {
           throw new RuntimeException(e);
         }
 
-        this.fillValues(data, cls, inst);
+        this.addObject(data);
+
+        this.fillValues(name, data, cls, inst);
 
         this.objects.computeIfAbsent(type, key -> new HashMap<>()).put(name, inst);
       }
     }
   }
 
-  private void fillValues(final GasEntry data, final Class<?> cls, final Object inst) {
+  private void fillValues(final String name, final GasEntry data, final Class<?> cls, final Object inst) {
     for(final Field field : cls.getDeclaredFields()) {
-      final GoValue value = field.getAnnotation(GoValue.class);
+      final GoName goName = field.getAnnotation(GoName.class);
 
-      if(value != null) {
+      if(goName != null) {
         field.setAccessible(true);
 
-        final String name = value.name().isEmpty() ? field.getName() : value.name();
-        final GasEntry child = data.getChild(name);
+        try {
+          field.set(inst, name);
+        } catch(final IllegalAccessException e) {
+          throw new RuntimeException(e);
+        }
+      }
+
+      final GoValue goValue = field.getAnnotation(GoValue.class);
+
+      if(goValue != null) {
+        field.setAccessible(true);
+
+        final String fieldName = goValue.name().isEmpty() ? field.getName() : goValue.name();
+        final GasEntry child = data.getChild(fieldName);
 
         if(child != null) {
+          // Child objects
+
           try {
-            field.set(inst, field.getType().getConstructor().newInstance());
-            this.fillValues(child, field.getType(), field.get(inst));
+            final Object childInst;
+            final String classId = this.classToId.get(field.getType());
+            if(classId != null) {
+              childInst = this.objects.get(classId).get(name);
+            } else {
+              childInst = field.getType().getConstructor().newInstance();
+            }
+
+            field.set(inst, childInst);
+            this.fillValues(name, child, field.getType(), field.get(inst));
           } catch(final IllegalAccessException | NoSuchMethodException | InstantiationException | InvocationTargetException e) {
             throw new RuntimeException(e);
           }
         } else {
+          // Regular properties
+
           try {
-            field.set(inst, data.get(name));
+            final Object val = data.get(fieldName);
+
+            if(val != null) {
+              field.set(inst, val);
+            }
           } catch(final IllegalAccessException e) {
             throw new RuntimeException(e);
           }

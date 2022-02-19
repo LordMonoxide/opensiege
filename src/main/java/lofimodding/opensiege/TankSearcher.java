@@ -16,6 +16,8 @@ public final class TankSearcher {
 
     final List<String> refs = new ArrayList<>();
 
+    final String search = String.join(" ", args).toLowerCase();
+
     tankManager.getFiles().parallelStream().forEach(filename -> {
       if(filename.endsWith(".lqd20")) {
         return;
@@ -25,7 +27,7 @@ public final class TankSearcher {
         final InputStream stream = tankManager.getFileByPath(filename);
         final String data = new String(stream.readAllBytes());
 
-        if(data.toLowerCase().contains(args[0])) {
+        if(data.toLowerCase().contains(search)) {
           refs.add(filename);
         }
       } catch(final IOException e) {

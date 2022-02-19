@@ -2,7 +2,6 @@ package lofimodding.opensiege;
 
 import lofimodding.opensiege.formats.aspect.Aspect;
 import lofimodding.opensiege.formats.aspect.AspectLoader;
-import lofimodding.opensiege.formats.gas.GasEntry;
 import lofimodding.opensiege.formats.gas.GasLoader;
 import lofimodding.opensiege.formats.raw.RawTexture;
 import lofimodding.opensiege.formats.raw.RawTextureLoader;
@@ -14,6 +13,7 @@ import lofimodding.opensiege.gfx.Shader;
 import lofimodding.opensiege.gfx.Texture;
 import lofimodding.opensiege.gfx.Window;
 import lofimodding.opensiege.go.GoDb;
+import lofimodding.opensiege.world.World;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 
@@ -86,9 +86,10 @@ public class Game {
       basicShader.new UniformInt("tex[" + i + ']').set(i);
     }
 
-    final GasEntry templates = GasLoader.load(tankManager.getFileByPath("/world/contentdb/templates/regular/_core/templates.gas"));
+    final World map = goDb.get(World.class, "map");
 
-    goDb.addObject(templates);
+    goDb.addObject(GasLoader.load(tankManager.getFileByPath("/world/maps/" + map.getName() + "/regions/" + map.getStartRegionName() + "/main.gas")));
+    goDb.addObject(GasLoader.load(tankManager.getFileByPath("/world/maps/" + map.getName() + "/regions/" + map.getStartRegionName() + "/terrain_nodes/nodes.gas")));
 
     final InputStream aspectData = tankManager.getFileByPath("/art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_mainmenu.asp");
     final Aspect aspect = AspectLoader.load(aspectData);

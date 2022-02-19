@@ -91,11 +91,15 @@ public class TankManager {
     return this.files.get(file);
   }
 
-  public Iterable<String> getSubdirectories(final String path) {
-    final String[] pathParts = stripLeadingSlash(path).split("/");
+  public Set<String> getSubdirectories(final String path) {
     TankDirectory dir = this.root;
-    for(final String part : pathParts) {
-      dir = dir.directories.get(part);
+
+    final String strippedPath = stripLeadingSlash(path);
+    if(!strippedPath.isEmpty()) {
+      final String[] pathParts = strippedPath.split("/");
+      for(final String part : pathParts) {
+        dir = dir.directories.get(part);
+      }
     }
 
     return dir.directories.keySet();
