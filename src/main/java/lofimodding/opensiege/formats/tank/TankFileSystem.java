@@ -241,7 +241,16 @@ public class TankFileSystem extends FileSystem {
   }
 
   public InputStream newInputStream(final Path path, final OpenOption[] options) throws IOException {
-    return new ByteArrayInputStream(this.tankManager.getFileByPath(path.toAbsolutePath().normalize().toString()));
+    final String filename;
+
+    // If just given a filename, look up the path
+    if(path.toString().indexOf('/') == -1) {
+      filename = this.tankManager.lookupPath(path.toString());
+    } else {
+      filename = path.toAbsolutePath().normalize().toString();
+    }
+
+    return new ByteArrayInputStream(this.tankManager.getFileByPath(filename));
   }
 
   public <A extends BasicFileAttributes> SeekableByteChannel newByteChannel(final Path path, final Set<? extends OpenOption> options, final FileAttribute<?>[] attrs) throws IOException {
