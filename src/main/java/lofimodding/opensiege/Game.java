@@ -12,10 +12,13 @@ import lofimodding.opensiege.gfx.Shader;
 import lofimodding.opensiege.gfx.Texture;
 import lofimodding.opensiege.gfx.Window;
 import lofimodding.opensiege.go.GoDb;
+import lofimodding.opensiege.world.SiegeNodes;
+import lofimodding.opensiege.world.Snode;
 import lofimodding.opensiege.world.World;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -25,6 +28,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
@@ -68,7 +72,11 @@ public class Game {
 
   private boolean wireframeMode;
 
+  private final GoDb goDb;
+
   public Game(final Path tankRoot, final GoDb goDb, final String mapId) throws IOException {
+    this.goDb = goDb;
+
     this.window = new Window("OpenSiege", WINDOW_WIDTH, WINDOW_HEIGHT);
     this.ctx = new Context(this.window, new QuaternionCamera(0.0f, 3.0f, 10.0f));
     this.ctx.setClearColour(0.0f, 0.0f, 0.0f);
@@ -94,6 +102,23 @@ public class Game {
 
     goDb.addObject(GasLoader.load(Files.newInputStream(regionPath.resolve("main.gas"))));
     goDb.addObject(GasLoader.load(Files.newInputStream(regionPath.resolve("terrain_nodes").resolve("nodes.gas"))));
+
+    try(final Stream<Path> nodeStream = Files.walk(tankRoot.resolve("world").resolve("global").resolve("siege_nodes"))) {
+      nodeStream
+        .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".gas"))
+        .map(p -> {
+          try {
+            return Files.newInputStream(p);
+          } catch(final IOException e) {
+            throw new RuntimeException(e);
+          }
+        })
+        .map(GasLoader::load)
+        .forEach(goDb::addObject);
+    }
+
+    final Snode snode = goDb.get(Snode.class, "0x" + Integer.toHexString(map.getCamera().getPosition().getNodeId()));
+    final String meshFile = this.findMeshFilename(snode.getMeshGuid());
 
     final InputStream aspectData = Files.newInputStream(tankRoot.resolve("art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_mainmenu.asp"));
     final Aspect aspect = AspectLoader.load(aspectData);
@@ -207,5 +232,18 @@ public class Game {
       case GLFW_KEY_SPACE -> this.movingUp = false;
       case GLFW_KEY_LEFT_SHIFT -> this.movingDown = false;
     }
+  }
+
+  @Nullable
+  private String findMeshFilename(final int guid) {
+    for(final SiegeNodes siegeNodes : this.goDb.get(SiegeNodes.class).values()) {
+      for(final SiegeNodes.MeshFile meshFile : siegeNodes) {
+        if(meshFile.getGuid() == guid) {
+          return meshFile.getFilename();
+        }
+      }
+    }
+
+    return null;
   }
 }

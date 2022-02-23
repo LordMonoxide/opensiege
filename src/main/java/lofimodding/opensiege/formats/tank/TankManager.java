@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,6 +17,7 @@ public class TankManager {
   private final List<Tank> tanks = new ArrayList<>();
   private final Map<String, Tank> paths = new HashMap<>();
   private final Map<String, String> files = new HashMap<>();
+  private final Set<String> dirs = new HashSet<>();
   private final TankDirectory root = new TankDirectory();
 
   public TankManager(final Path installPath) throws IOException {
@@ -54,7 +56,7 @@ public class TankManager {
     //TODO is this okay? .gas files especially - do we need to actually load these in order of priority and overwrite config values?
 
     for(final Tank tank : this.tanks) {
-      for(final String path : tank.paths().keySet()) {
+      for(final String path : tank.filePaths().keySet()) {
         final String[] pathParts = stripLeadingSlash(path).split("/");
 
         TankDirectory dir = this.root;
@@ -67,6 +69,8 @@ public class TankManager {
 
         this.paths.put(path, tank);
       }
+
+      this.dirs.addAll(tank.directoryPaths().keySet());
     }
 
     System.out.println("All resources loaded.");
@@ -86,11 +90,29 @@ public class TankManager {
     return tank.getFileByPath(filename);
   }
 
+  public TankFileEntry getFileInfo(final String filename) throws IOException {
+    final Tank tank = this.paths.get(filename);
+
+    if(tank == null) {
+      throw new FileNotFoundException(filename + " not found");
+    }
+
+    return tank.filePaths().get(filename);
+  }
+
   public String lookupPath(final String file) {
     return this.files.get(file);
   }
 
-  public Set<String> getSubdirectories(final String path) {
+  public boolean isFile(final String path) {
+    return this.files.containsKey(path);
+  }
+
+  public boolean isDir(final String path) {
+    return this.dirs.contains(path);
+  }
+
+  public Set<String> getChildren(final String path) {
     TankDirectory dir = this.root;
 
     final String strippedPath = stripLeadingSlash(path);
@@ -101,7 +123,11 @@ public class TankManager {
       }
     }
 
-    return dir.directories.keySet();
+    final Set<String> children = new HashSet<>();
+    children.addAll(dir.directories.keySet());
+    children.addAll(dir.files.keySet());
+
+    return children;
   }
 
   private static String stripLeadingSlash(final String path) {

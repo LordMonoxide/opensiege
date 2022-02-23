@@ -100,7 +100,7 @@ public final class GasLoader {
 
           System.err.println("Failed to load gas - line " + (lineNumber - 1) + " char " + charsLeft + ": " + e.getMessage() + ", got " + stateManager.readUntil(c -> c == '\r' || c == '\n'));
           e.printStackTrace();
-          return new GasEntry(new HashMap<>(), new HashMap<>());
+          return new GasEntry(new HashMap<>(), new HashMap<>(), new HashMap<>());
         }
 
         if(stateManager.stop) {
@@ -122,17 +122,23 @@ public final class GasLoader {
 
   private static GasEntry buildEntry(final Map<String, Object> map) {
     final Map<String, GasEntry> children = new HashMap<>();
+    final Map<String, List<GasEntry>> arrayChildren = new HashMap<>();
     final Map<String, Object> values = new HashMap<>();
 
     for(final Map.Entry<String, Object> entry : map.entrySet()) {
-      if(entry.getValue() instanceof final Map child) {
+      if(entry.getValue() instanceof final List child) {
+        for(final Object o : child) {
+          final Map<String, Object> childMap = (Map<String, Object>)o;
+          arrayChildren.computeIfAbsent(entry.getKey(), key -> new ArrayList<>()).add(buildEntry(childMap));
+        }
+      } else if(entry.getValue() instanceof final Map child) {
         children.put(entry.getKey(), buildEntry(child));
       } else {
         values.put(entry.getKey(), entry.getValue());
       }
     }
 
-    return new GasEntry(children, values);
+    return new GasEntry(children, arrayChildren, values);
   }
 
   private static Reader or(final State... states) {
@@ -393,7 +399,7 @@ public final class GasLoader {
 
       final Map<String, Object> map = new HashMap<>();
 
-      if(this.headerList) {
+      if(this.headerList && this.current.size() > 1) {
         final List<Object> list = (List<Object>)this.current.element().computeIfAbsent(this.header, key -> new ArrayList<>());
         list.add(map);
       } else {
@@ -568,7 +574,7 @@ public final class GasLoader {
 
           if(str.startsWith("0x")) {
             try {
-              val = Integer.parseInt(str.substring(2), 16);
+              val = Integer.parseUnsignedInt(str.substring(2), 16);
               break;
             } catch(final NumberFormatException ignored) {}
 

@@ -56,7 +56,7 @@ public final class Launcher {
 
     System.out.println("Searching for maps...");
 
-    try(final DirectoryStream<Path> ds = Files.newDirectoryStream(p.resolve("world/maps"))) {
+    try(final DirectoryStream<Path> ds = Files.newDirectoryStream(p.resolve("world/maps"), Files::isDirectory)) {
       for(final Path child : ds) {
         final GasEntry root = GasLoader.load(Files.newInputStream(child.resolve("main.gas")));
         final GasEntry data = root.getChild("t:map,n:map");

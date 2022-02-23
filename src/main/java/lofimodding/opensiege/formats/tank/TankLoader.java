@@ -45,7 +45,7 @@ public final class TankLoader {
 
     file.skip(24);
 
-    final TankPriority priority = TankPriority.fromCode(readInt(file));
+    final TankPriority priority = TankPriority.fromCode(readInt16(file));
 
     final TankHeader header = new TankHeader(productId, tankId, headerVersion, dirSetOffset, fileSetOffset, indexSize, dataSetOffset, priority);
 
@@ -163,38 +163,38 @@ public final class TankLoader {
       fileEntries.put(fileOffset, new TankFileEntry(parentOffset, entrySize, dataOffset, crc32, fileTime, format, flags, name, compressionHeader));
     }
 
-    final Map<String, TankFileEntry> paths = buildPaths(dirEntries, fileEntries);
+    final Map<String, TankDirectoryEntry> directories = new HashMap<>();
+    final Map<String, TankFileEntry> files = new HashMap<>();
+    buildPaths(dirEntries, fileEntries, directories, files);
 
     final long endTime = System.nanoTime();
 
     System.out.println("Loaded " + path + " in " + (endTime - startTime) / 1000000 + "ms");
 
-    return new Tank(path, header, dirEntries, fileEntries, paths);
+    return new Tank(path, header, dirEntries, fileEntries, directories, files);
   }
 
-  private static Map<String, TankFileEntry> buildPaths(final Int2ObjectMap<TankDirectoryEntry> dirEntries, final Int2ObjectMap<TankFileEntry> fileEntries) {
-    final Map<String, TankFileEntry> paths = new HashMap<>();
-
+  private static void buildPaths(final Int2ObjectMap<TankDirectoryEntry> dirEntries, final Int2ObjectMap<TankFileEntry> fileEntries, final Map<String, TankDirectoryEntry> directoriesOut, final Map<String, TankFileEntry> filesOut) {
     for(final TankFileEntry fileEntry : fileEntries.values()) {
       final StringBuilder path = new StringBuilder();
 
       if(fileEntry.parentOffset() != 0) {
-        buildPath(path, dirEntries, dirEntries.get(fileEntry.parentOffset()));
+        buildPath(path, dirEntries, dirEntries.get(fileEntry.parentOffset()), directoriesOut);
       }
 
       path.append('/').append(fileEntry.name());
-      paths.put(path.toString(), fileEntry);
+      filesOut.put(path.toString(), fileEntry);
     }
-
-    return paths;
   }
 
-  private static void buildPath(final StringBuilder path, final Int2ObjectMap<TankDirectoryEntry> dirEntries, final TankDirectoryEntry dirEntry) {
+  private static void buildPath(final StringBuilder path, final Int2ObjectMap<TankDirectoryEntry> dirEntries, final TankDirectoryEntry dirEntry, final Map<String, TankDirectoryEntry> directoriesOut) {
     if(dirEntry.parentOffset() == 0) {
       return;
     }
 
-    buildPath(path, dirEntries, dirEntries.get(dirEntry.parentOffset()));
+    buildPath(path, dirEntries, dirEntries.get(dirEntry.parentOffset()), directoriesOut);
     path.append('/').append(dirEntry.dirName());
+
+    directoriesOut.put(path.toString(), dirEntry);
   }
 }

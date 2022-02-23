@@ -3,7 +3,6 @@ package lofimodding.opensiege.formats.tank;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
@@ -22,17 +21,13 @@ import java.nio.file.attribute.UserPrincipalLookupService;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
 
 public class TankFileSystem extends FileSystem {
   private final TankFileSystemProvider fileSystemProvider;
   private final TankManager tankManager;
-  private final Map<String, Object> contents = new ConcurrentHashMap<>();
 
   public TankFileSystem(final TankFileSystemProvider fileSystemProvider, final TankManager tankManager, final Map<String, ?> env) throws IOException {
     this.fileSystemProvider = fileSystemProvider;
@@ -226,7 +221,7 @@ public class TankFileSystem extends FileSystem {
       @Override
       public Iterator<Path> iterator() {
         return TankFileSystem.this.tankManager
-          .getSubdirectories(dir.toAbsolutePath().normalize().toString())
+          .getChildren(dir.toAbsolutePath().normalize().toString())
           .stream()
           .map(dir::resolve)
           .filter(entry -> {
@@ -304,49 +299,20 @@ public class TankFileSystem extends FileSystem {
     if(clazz != BasicFileAttributes.class) {
       throw new UnsupportedOperationException();
     }
-    final Path absolute = path.toAbsolutePath();
-    final Path parent = absolute.getParent();
-    Object desc = this.contents.get(absolute.toString());
-    if(desc == null) {
-      final Object parentContent = this.contents.get(parent.toString());
-      if(parentContent != null) {
-        for(final Map<String, ?> child : (List<Map<String, ?>>)parentContent) {
-          if(child.get("path").equals(absolute.toString().substring(1))) {
-            desc = child;
-            break;
-          }
-        }
-      }
-    }
-    if(desc == null) {
-      desc = this.loadContent(absolute.toString());
-    }
+
+    final String absolute = path.toAbsolutePath().normalize().toString();
+
     final String type;
     final long size;
-    if(desc instanceof List) {
+    if(this.tankManager.isDir(absolute)) {
       type = "directory";
       size = 0;
     } else {
-      type = (String)((Map)desc).get("type");
-      size = ((Number)((Map)desc).get("size")).longValue();
+      type = "file";
+      size = this.tankManager.getFileInfo(absolute).entrySize();
     }
+
     return (A)new TankFileAttributes(type, size);
-  }
-
-  private Object loadContent(final String path) throws IOException {
-    final Object content = this.contents.get(path);
-    return content;
-  }
-
-  private InputStream wrapStream(final HttpURLConnection uc, final InputStream in) throws IOException {
-    final String encoding = uc.getContentEncoding();
-    if(encoding == null || in == null) {
-      return in;
-    }
-    if("gzip".equals(encoding)) {
-      return new GZIPInputStream(in);
-    }
-    throw new UnsupportedOperationException("Unexpected Content-Encoding: " + encoding);
   }
 
   private static final class TankFileAttributes implements BasicFileAttributes {

@@ -11,77 +11,79 @@ import java.util.Map;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
-public record Tank(Path path, TankHeader header, Int2ObjectMap<TankDirectoryEntry> directoryEntries, Int2ObjectMap<TankFileEntry> fileEntries, Map<String, TankFileEntry> paths) {
+public record Tank(Path path, TankHeader header, Int2ObjectMap<TankDirectoryEntry> directoryEntries, Int2ObjectMap<TankFileEntry> fileEntries, Map<String, TankDirectoryEntry> directoryPaths, Map<String, TankFileEntry> filePaths) {
   public byte[] getFileByPath(final String filename) throws IOException {
     //TODO file caching
 
     System.out.println("Extracting file " + filename);
 
-    final TankFileEntry fileEntry = this.paths.get(filename);
+    final TankFileEntry fileEntry = this.filePaths.get(filename);
 
     if(fileEntry == null) {
       throw new FileNotFoundException(filename + " not found in tank archive");
     }
 
-    final FileInputStream file = new FileInputStream(this.path.toFile());
-
-    if(!fileEntry.format().isCompressed()) {
-      file.skip(this.header.dataOffset() + fileEntry.dataOffset());
-      final byte[] data = new byte[fileEntry.entrySize()];
-      file.read(data);
-      return data;
-    }
-
-    final byte[][] allData = new byte[fileEntry.compressionHeader().chunkHeaders().length][];
+    final byte[][] allData;
     int totalSize = 0;
 
-    final TankChunkHeader[] chunkHeaders = fileEntry.compressionHeader().chunkHeaders();
-    for(int chunkIndex = 0; chunkIndex < chunkHeaders.length; chunkIndex++) {
-      final TankChunkHeader chunkHeader = chunkHeaders[chunkIndex];
-
-      file.getChannel().position(this.header.dataOffset() + fileEntry.dataOffset() + chunkHeader.offset());
-
-      if(chunkHeader.isCompressed()) {
-        final byte[] compressedData = new byte[chunkHeader.compressedBytes()];
-        if(file.read(compressedData) < compressedData.length) {
-          throw new EOFException("Unexpected end of file");
-        }
-
-        // Decompress
-        final byte[] uncompressedData = new byte[chunkHeader.uncompressedBytes()];
-        final int readBytes;
-        final Inflater inflater = new Inflater();
-        inflater.setInput(compressedData);
-        try {
-          readBytes = inflater.inflate(uncompressedData, 0, uncompressedData.length);
-        } catch(final DataFormatException e) {
-          throw new RuntimeException(e);
-        }
-
-        inflater.end();
-
-        if(readBytes < chunkHeader.uncompressedBytes() - chunkHeader.extraBytes()) {
-          throw new EOFException("Unexpected end of file");
-        }
-
-        // Copy extra data
-        if(chunkHeader.extraBytes() != 0) {
-          if(file.read(uncompressedData, readBytes, chunkHeader.extraBytes()) < chunkHeader.extraBytes()) {
-            throw new EOFException("Unexpected end of file");
-          }
-        }
-
-        allData[chunkIndex] = uncompressedData;
-      } else {
-        final byte[] uncompressedData = new byte[chunkHeader.uncompressedBytes()];
-        if(file.read(uncompressedData) < uncompressedData.length) {
-          throw new EOFException("Unexpected end of file");
-        }
-
-        allData[chunkIndex] = uncompressedData;
+    try(final FileInputStream file = new FileInputStream(this.path.toFile())) {
+      if(!fileEntry.format().isCompressed()) {
+        file.skip(this.header.dataOffset() + fileEntry.dataOffset());
+        final byte[] data = new byte[fileEntry.entrySize()];
+        file.read(data);
+        return data;
       }
 
-      totalSize += allData[chunkIndex].length;
+      allData = new byte[fileEntry.compressionHeader().chunkHeaders().length][];
+
+      final TankChunkHeader[] chunkHeaders = fileEntry.compressionHeader().chunkHeaders();
+      for(int chunkIndex = 0; chunkIndex < chunkHeaders.length; chunkIndex++) {
+        final TankChunkHeader chunkHeader = chunkHeaders[chunkIndex];
+
+        file.getChannel().position(this.header.dataOffset() + fileEntry.dataOffset() + chunkHeader.offset());
+
+        if(chunkHeader.isCompressed()) {
+          final byte[] compressedData = new byte[chunkHeader.compressedBytes()];
+          if(file.read(compressedData) < compressedData.length) {
+            throw new EOFException("Unexpected end of file");
+          }
+
+          // Decompress
+          final byte[] uncompressedData = new byte[chunkHeader.uncompressedBytes()];
+          final int readBytes;
+          final Inflater inflater = new Inflater();
+          inflater.setInput(compressedData);
+          try {
+            readBytes = inflater.inflate(uncompressedData, 0, uncompressedData.length);
+          } catch(final DataFormatException e) {
+            throw new RuntimeException(e);
+          }
+
+          inflater.end();
+
+          if(readBytes < chunkHeader.uncompressedBytes() - chunkHeader.extraBytes()) {
+            throw new EOFException("Unexpected end of file");
+          }
+
+          // Copy extra data
+          if(chunkHeader.extraBytes() != 0) {
+            if(file.read(uncompressedData, readBytes, chunkHeader.extraBytes()) < chunkHeader.extraBytes()) {
+              throw new EOFException("Unexpected end of file");
+            }
+          }
+
+          allData[chunkIndex] = uncompressedData;
+        } else {
+          final byte[] uncompressedData = new byte[chunkHeader.uncompressedBytes()];
+          if(file.read(uncompressedData) < uncompressedData.length) {
+            throw new EOFException("Unexpected end of file");
+          }
+
+          allData[chunkIndex] = uncompressedData;
+        }
+
+        totalSize += allData[chunkIndex].length;
+      }
     }
 
     final byte[] data = new byte[totalSize];

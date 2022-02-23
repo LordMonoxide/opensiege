@@ -4,6 +4,7 @@ import lofimodding.opensiege.go.GameObject;
 import lofimodding.opensiege.go.GoType;
 import lofimodding.opensiege.go.GoValue;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @GoType(type = "snode")
@@ -39,7 +40,51 @@ public class Snode extends GameObject {
   private String texSetAbbr;
 
   @GoValue
-  private List<Door> door;
+  private final List<Door> door = new ArrayList<>();
+
+  public boolean isBoundsCamera() {
+    return this.boundsCamera;
+  }
+
+  public boolean isCameraFade() {
+    return this.cameraFade;
+  }
+
+  public int getGuid() {
+    return this.guid;
+  }
+
+  public int getMeshGuid() {
+    return this.meshGuid;
+  }
+
+  public int getNodeLevel() {
+    return this.nodeLevel;
+  }
+
+  public int getNodeObject() {
+    return this.nodeObject;
+  }
+
+  public int getNodeSection() {
+    return this.nodeSection;
+  }
+
+  public boolean isOccludesCamera() {
+    return this.occludesCamera;
+  }
+
+  public boolean isOccludesLight() {
+    return this.occludesLight;
+  }
+
+  public String getTexSetAbbr() {
+    return this.texSetAbbr;
+  }
+
+  public List<Door> getDoors() {
+    return this.door;
+  }
 
   public static class Door {
     @GoValue(name = "fardoor")
@@ -50,5 +95,17 @@ public class Snode extends GameObject {
 
     @GoValue
     private int id;
+
+    public int getFarDoor() {
+      return this.farDoor;
+    }
+
+    public int getFarGuid() {
+      return this.farGuid;
+    }
+
+    public int getId() {
+      return this.id;
+    }
   }
 }
