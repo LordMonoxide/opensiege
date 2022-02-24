@@ -1,5 +1,6 @@
 package lofimodding.opensiege.formats;
 
+import org.joml.Matrix3f;
 import org.joml.Quaternionf;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -39,6 +40,16 @@ public final class StreamReader {
     file.skip(4 - (length + 2) % 4);
 
     return string;
+  }
+
+  public static String readCString(final InputStream file) throws IOException {
+    final StringBuilder sb = new StringBuilder();
+
+    for(int c = file.read(); c != 0; c = file.read()) {
+      sb.append((char)c);
+    }
+
+    return sb.toString();
   }
 
   public static int readInt16(final InputStream file) throws IOException {
@@ -91,6 +102,10 @@ public final class StreamReader {
     return new Vector3i(readInt(file), readInt(file), readInt(file));
   }
 
+  public static Vector3i readVec3s(final InputStream file) throws IOException {
+    return new Vector3i(readInt16(file), readInt16(file), readInt16(file));
+  }
+
   public static Vector4f readVec4(final InputStream file) throws IOException {
     return new Vector4f(readFloat(file), readFloat(file), readFloat(file), readFloat(file));
   }
@@ -101,5 +116,9 @@ public final class StreamReader {
 
   public static Quaternionf readQuat(final InputStream file) throws IOException {
     return new Quaternionf(readFloat(file), readFloat(file), readFloat(file), readFloat(file));
+  }
+
+  public static Matrix3f readMat3(final InputStream file) throws IOException {
+    return new Matrix3f(readFloat(file), readFloat(file), readFloat(file), readFloat(file), readFloat(file), readFloat(file), readFloat(file), readFloat(file), readFloat(file));
   }
 }

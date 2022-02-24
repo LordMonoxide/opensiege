@@ -3,8 +3,6 @@ package lofimodding.opensiege;
 import lofimodding.opensiege.formats.aspect.Aspect;
 import lofimodding.opensiege.formats.aspect.AspectLoader;
 import lofimodding.opensiege.formats.gas.GasLoader;
-import lofimodding.opensiege.formats.raw.RawTexture;
-import lofimodding.opensiege.formats.raw.RawTextureLoader;
 import lofimodding.opensiege.gfx.Context;
 import lofimodding.opensiege.gfx.Mesh;
 import lofimodding.opensiege.gfx.QuaternionCamera;
@@ -13,7 +11,6 @@ import lofimodding.opensiege.gfx.Texture;
 import lofimodding.opensiege.gfx.Window;
 import lofimodding.opensiege.go.GoDb;
 import lofimodding.opensiege.world.SiegeNodes;
-import lofimodding.opensiege.world.Snode;
 import lofimodding.opensiege.world.World;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
@@ -21,7 +18,6 @@ import org.lwjgl.BufferUtils;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,9 +37,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_W;
 import static org.lwjgl.opengl.GL11C.GL_FILL;
 import static org.lwjgl.opengl.GL11C.GL_FRONT_AND_BACK;
 import static org.lwjgl.opengl.GL11C.GL_LINE;
-import static org.lwjgl.opengl.GL11C.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11C.glPolygonMode;
-import static org.lwjgl.opengl.GL12C.GL_BGRA;
 
 public class Game {
   private static final int WINDOW_WIDTH = 1280;
@@ -95,6 +89,8 @@ public class Game {
       basicShader.new UniformInt("tex[" + i + ']').set(i);
     }
 
+    final TextureManager textureManager = new TextureManager(tankRoot);
+
     final World map = goDb.get(World.class, "map");
 
     final Path mapPath = tankRoot.resolve("world").resolve("maps").resolve(map.getName());
@@ -117,29 +113,15 @@ public class Game {
         .forEach(goDb::addObject);
     }
 
-    final Snode snode = goDb.get(Snode.class, "0x" + Integer.toHexString(map.getCamera().getPosition().getNodeId()));
-    final String meshFile = this.findMeshFilename(snode.getMeshGuid());
+    final Scene scene = new Scene(tankRoot, textureManager, goDb);
+    scene.setRegion(map.getCamera().getPosition().getNodeId());
 
     final InputStream aspectData = Files.newInputStream(tankRoot.resolve("art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_mainmenu.asp"));
     final Aspect aspect = AspectLoader.load(aspectData);
     final List<Texture> textures = new ArrayList<>();
 
     for(final String texture : aspect.textures()) {
-      try {
-        final RawTexture raw = RawTextureLoader.load(Files.newInputStream(tankRoot.resolve("art/bitmaps/gui/front_end/menus/main/" + texture + ".raw")));
-        textures.add(Texture.create(builder -> {
-          final ByteBuffer buffer = BufferUtils.createByteBuffer(raw.data().length);
-          buffer.put(raw.data());
-          buffer.flip();
-
-          builder.data(buffer, raw.header().width(), raw.header().height());
-          builder.dataFormat(GL_BGRA);
-          builder.dataType(GL_UNSIGNED_BYTE);
-        }));
-      } catch(final IOException e) {
-        System.err.println("Failed to load texture " + texture + " - " + e.getLocalizedMessage());
-        textures.add(Texture.empty(1, 1));
-      }
+      textures.add(textureManager.getTexture(texture));
     }
 
     final FloatBuffer identityBuffer = BufferUtils.createFloatBuffer(4 * 4);
@@ -151,6 +133,8 @@ public class Game {
       this.transforms2.set(identityBuffer);
 
       basicShader.use();
+
+      scene.draw();
 
       for(int i = 0; i < textures.size(); i++) {
         textures.get(i).use(i);
