@@ -1,6 +1,7 @@
 package lofimodding.opensiege.formats;
 
 import org.joml.Matrix3f;
+import org.joml.Matrix4x3f;
 import org.joml.Quaternionf;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -45,8 +46,12 @@ public final class StreamReader {
   public static String readCString(final InputStream file) throws IOException {
     final StringBuilder sb = new StringBuilder();
 
-    for(int c = file.read(); c != 0; c = file.read()) {
-      sb.append((char)c);
+    while(true) {
+      final char c = (char)file.read();
+      if(c == 0) {
+        break;
+      }
+      sb.append(c);
     }
 
     return sb.toString();

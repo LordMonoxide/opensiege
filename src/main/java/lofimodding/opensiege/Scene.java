@@ -3,63 +3,130 @@ package lofimodding.opensiege;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lofimodding.opensiege.formats.siegenode.Sno;
+import lofimodding.opensiege.formats.siegenode.SnoDoor;
 import lofimodding.opensiege.formats.siegenode.SnoLoader;
 import lofimodding.opensiege.formats.siegenode.SnoRenderer;
+import lofimodding.opensiege.gfx.MatrixStack;
+import lofimodding.opensiege.gfx.Shader;
 import lofimodding.opensiege.gfx.Texture;
 import lofimodding.opensiege.go.GoDb;
 import lofimodding.opensiege.world.SiegeNodes;
 import lofimodding.opensiege.world.Snode;
+import org.joml.Matrix4f;
+import org.lwjgl.BufferUtils;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.nio.FloatBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class Scene {
   private final Path root;
   private final TextureManager textureManager;
   private final GoDb goDb;
+  private final Shader.UniformBuffer transforms2;
 
   private final Int2ObjectMap<SceneChunk> cache = new Int2ObjectOpenHashMap<>();
 
-  private SceneChunk chunk;
+  private int regionGuid;
 
-  public Scene(final Path root, final TextureManager textureManager, final GoDb goDb) {
+  public Scene(final Path root, final TextureManager textureManager, final GoDb goDb, final Shader.UniformBuffer transforms2) {
     this.root = root;
     this.textureManager = textureManager;
     this.goDb = goDb;
+    this.transforms2 = transforms2;
   }
 
-  public void setRegion(final int guid) throws IOException {
+  public void setRegion(final int guid) {
+    this.regionGuid = guid;
+  }
+
+  private SceneChunk getChunk(final int guid) {
     if(this.cache.containsKey(guid)) {
-      this.chunk = this.cache.get(guid);
+      return this.cache.get(guid);
     }
 
-    final Snode snode = this.goDb.get(Snode.class, "0x" + Integer.toHexString(guid));
+    final Snode snode = this.goDb.get(Snode.class, "0x" + String.format("%08x", guid));
+
+    if(snode == null) {
+      throw new RuntimeException("Snode 0x" + Integer.toHexString(guid) + " not found");
+    }
+
     final String meshFile = this.findMeshFilename(snode.getMeshGuid());
 
     if(meshFile == null) {
-      throw new RuntimeException("Failed to find node sno");
+      throw new RuntimeException("Failed to find node sno with mesh GUID 0x" + String.format("%08x", snode.getMeshGuid()));
     }
 
     final Path meshSno = this.root.resolveSibling(meshFile + ".sno");
-    final Sno sno = SnoLoader.load(Files.newInputStream(meshSno));
+    final Sno sno;
+    try {
+      sno = SnoLoader.load(Files.newInputStream(meshSno));
+    } catch(final IOException e) {
+      throw new RuntimeException(e);
+    }
     final SnoRenderer snoRenderer = new SnoRenderer(sno);
-    final List<Texture> snoTextures = new ArrayList<>(snoRenderer.textureIndices.size());
+    final Texture[] snoTextures = new Texture[snoRenderer.textureIndices.size()];
 
     for(final Map.Entry<String, Integer> entry : snoRenderer.textureIndices.entrySet()) {
-      snoTextures.add(entry.getValue(), this.textureManager.getTexture(entry.getKey()));
+      snoTextures[entry.getValue()] = this.textureManager.getTexture(entry.getKey());
     }
 
-    this.chunk = new SceneChunk(snoRenderer, snoTextures);
-    this.cache.put(guid, this.chunk);
+    final SceneChunk chunk = new SceneChunk(snode, snoRenderer, snoTextures);
+    this.cache.put(guid, chunk);
+    return chunk;
   }
 
-  public void draw() {
-    this.chunk.draw();
+  private final Set<SceneChunk> visited = new HashSet<>();
+
+  public void draw(final MatrixStack matrixStack) {
+    this.visited.clear();
+    this.drawChunk(matrixStack, this.getChunk(this.regionGuid), 0);
+  }
+
+  private final FloatBuffer identityBuffer = BufferUtils.createFloatBuffer(4 * 4);
+
+  private void drawChunk(final MatrixStack matrixStack, final SceneChunk chunk, final int distance) {
+    if(this.visited.contains(chunk) || distance > 5) {
+      return;
+    }
+
+    this.visited.add(chunk);
+
+    matrixStack.push();
+
+    this.identityBuffer.clear();
+    matrixStack.get(this.identityBuffer);
+    this.transforms2.set(this.identityBuffer);
+
+    chunk.draw();
+
+    for(final SnoDoor door : chunk.renderer.sno.doors().values()) {
+      final Snode.Door snodeDoor = chunk.snode.getDoor(door.index());
+
+      matrixStack.push();
+      matrixStack.translate(door.translation());
+      matrixStack.top().mul(new Matrix4f(door.rotation()));
+
+      final SceneChunk farChunk = this.getChunk(snodeDoor.getFarGuid());
+      final SnoDoor farDoor = farChunk.renderer.sno.getDoor(snodeDoor.getFarDoor());
+
+      final Matrix4f farTransforms = new Matrix4f(farDoor.rotation());
+      farTransforms.translateLocal(farDoor.translation());
+      farTransforms.invert();
+      farTransforms.rotateLocalY((float)Math.PI);
+      matrixStack.top().mul(farTransforms);
+
+      this.drawChunk(matrixStack, farChunk, distance + 1);
+
+      matrixStack.pop();
+    }
+
+    matrixStack.pop();
   }
 
   @Nullable
@@ -75,10 +142,10 @@ public class Scene {
     return null;
   }
 
-  private record SceneChunk(SnoRenderer renderer, List<Texture> textures) {
+  private record SceneChunk(Snode snode, SnoRenderer renderer, Texture[] textures) {
     public void draw() {
-      for(int i = 0; i < this.textures.size(); i++) {
-        this.textures.get(i).use(i);
+      for(int i = 0; i < this.textures.length; i++) {
+        this.textures[i].use(i);
       }
 
       this.renderer.mesh.draw();

@@ -1,29 +1,21 @@
 package lofimodding.opensiege;
 
-import lofimodding.opensiege.formats.aspect.Aspect;
-import lofimodding.opensiege.formats.aspect.AspectLoader;
 import lofimodding.opensiege.formats.gas.GasLoader;
 import lofimodding.opensiege.gfx.Context;
-import lofimodding.opensiege.gfx.Mesh;
+import lofimodding.opensiege.gfx.MatrixStack;
 import lofimodding.opensiege.gfx.QuaternionCamera;
 import lofimodding.opensiege.gfx.Shader;
-import lofimodding.opensiege.gfx.Texture;
 import lofimodding.opensiege.gfx.Window;
 import lofimodding.opensiege.go.GoDb;
-import lofimodding.opensiege.world.SiegeNodes;
 import lofimodding.opensiege.world.World;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.FloatBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.stream.Stream;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
@@ -113,20 +105,15 @@ public class Game {
         .forEach(goDb::addObject);
     }
 
-    final Scene scene = new Scene(tankRoot, textureManager, goDb);
-    scene.setRegion(map.getCamera().getPosition().getNodeId());
-
-    final InputStream aspectData = Files.newInputStream(tankRoot.resolve("art/meshes/gui/front_end/menus/main/m_gui_fe_m_mn_3d_mainmenu.asp"));
-    final Aspect aspect = AspectLoader.load(aspectData);
-    final List<Texture> textures = new ArrayList<>();
-
-    for(final String texture : aspect.textures()) {
-      textures.add(textureManager.getTexture(texture));
-    }
-
     final FloatBuffer identityBuffer = BufferUtils.createFloatBuffer(4 * 4);
     new Matrix4f().get(identityBuffer);
     this.transforms2 = new Shader.UniformBuffer((long)identityBuffer.capacity() * Float.BYTES, Shader.UniformBuffer.TRANSFORM2);
+
+    final Scene scene = new Scene(tankRoot, textureManager, goDb, this.transforms2);
+    scene.setRegion(map.getCamera().getPosition().getNodeId());
+//    scene.setRegion(0xc53a1f72);
+
+    final MatrixStack matrixStack = new MatrixStack();
 
     this.ctx.onDraw(() -> {
       // Restore model buffer to identity
@@ -134,15 +121,7 @@ public class Game {
 
       basicShader.use();
 
-      scene.draw();
-
-      for(int i = 0; i < textures.size(); i++) {
-        textures.get(i).use(i);
-      }
-
-      for(final Mesh mesh : aspect.meshes()) {
-        mesh.draw();
-      }
+      scene.draw(matrixStack);
 
       if(this.movingLeft) {
         this.ctx.camera.strafe(-MOVE_SPEED);
@@ -216,18 +195,5 @@ public class Game {
       case GLFW_KEY_SPACE -> this.movingUp = false;
       case GLFW_KEY_LEFT_SHIFT -> this.movingDown = false;
     }
-  }
-
-  @Nullable
-  private String findMeshFilename(final int guid) {
-    for(final SiegeNodes siegeNodes : this.goDb.get(SiegeNodes.class).values()) {
-      for(final SiegeNodes.MeshFile meshFile : siegeNodes) {
-        if(meshFile.getGuid() == guid) {
-          return meshFile.getFilename();
-        }
-      }
-    }
-
-    return null;
   }
 }

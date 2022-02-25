@@ -64,10 +64,10 @@ public class TankManager {
           dir = dir.directories.computeIfAbsent(pathParts[i], key -> new TankDirectory());
         }
 
-        dir.files.put(pathParts[pathParts.length - 1], tank);
-        this.files.put(pathParts[pathParts.length - 1], path);
+        dir.files.put(pathParts[pathParts.length - 1].toLowerCase(), tank);
+        this.files.put(pathParts[pathParts.length - 1].toLowerCase(), path);
 
-        this.paths.put(path, tank);
+        this.paths.put(path.toLowerCase(), tank);
       }
 
       this.dirs.addAll(tank.directoryPaths().keySet());
@@ -81,7 +81,7 @@ public class TankManager {
   }
 
   public byte[] getFileByPath(final String filename) throws IOException {
-    final Tank tank = this.paths.get(filename);
+    final Tank tank = this.paths.get(filename.toLowerCase());
 
     if(tank == null) {
       throw new FileNotFoundException(filename + " not found");
@@ -91,7 +91,7 @@ public class TankManager {
   }
 
   public TankFileEntry getFileInfo(final String filename) throws IOException {
-    final Tank tank = this.paths.get(filename);
+    final Tank tank = this.paths.get(filename.toLowerCase());
 
     if(tank == null) {
       throw new FileNotFoundException(filename + " not found");
@@ -101,15 +101,15 @@ public class TankManager {
   }
 
   public String lookupPath(final String file) {
-    return this.files.get(file);
+    return this.files.get(file.toLowerCase());
   }
 
   public boolean isFile(final String path) {
-    return this.files.containsKey(path);
+    return this.files.containsKey(path.toLowerCase());
   }
 
   public boolean isDir(final String path) {
-    return this.dirs.contains(path);
+    return this.dirs.contains(path.toLowerCase());
   }
 
   public Set<String> getChildren(final String path) {

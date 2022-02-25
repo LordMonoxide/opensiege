@@ -42,11 +42,11 @@ public class Snode extends GameObject {
   @GoValue
   private final List<Door> door = new ArrayList<>();
 
-  public boolean isBoundsCamera() {
+  public boolean boundsCamera() {
     return this.boundsCamera;
   }
 
-  public boolean isCameraFade() {
+  public boolean cameraFade() {
     return this.cameraFade;
   }
 
@@ -70,11 +70,11 @@ public class Snode extends GameObject {
     return this.nodeSection;
   }
 
-  public boolean isOccludesCamera() {
+  public boolean occludesCamera() {
     return this.occludesCamera;
   }
 
-  public boolean isOccludesLight() {
+  public boolean occludesLight() {
     return this.occludesLight;
   }
 
@@ -84,6 +84,16 @@ public class Snode extends GameObject {
 
   public List<Door> getDoors() {
     return this.door;
+  }
+
+  public Door getDoor(final int id) {
+    for(final Door door : this.door) {
+      if(door.id == id) {
+        return door;
+      }
+    }
+
+    throw new RuntimeException("Failed to find door " + id);
   }
 
   public static class Door {

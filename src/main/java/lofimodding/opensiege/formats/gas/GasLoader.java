@@ -75,49 +75,65 @@ public final class GasLoader {
 
     final String gas = builder.toString();
 
-    final StateManager stateManager = new StateManager(gas);
+    final Map<String, GasEntry> roots = new HashMap<>();
+
+    int prevStateManagerPos = 0;
 
     outer:
-    while(stateManager.hasMore()) {
-      for(final Reader r : stateManager.state.readers) {
-        stateManager.skipWhitespaceAndComments();
+    while(true) {
+      final StateManager stateManager = new StateManager(gas);
+      stateManager.index = prevStateManagerPos;
 
-        final int index = stateManager.index;
+      inner:
+      while(stateManager.hasMore()) {
+        for(final Reader r : stateManager.state.readers) {
+          stateManager.skipWhitespaceAndComments();
 
-        try {
-          r.read(stateManager);
-        } catch(final GasParserException e) {
-          int charsLeft = index;
-          int lineNumber;
-          for(lineNumber = 0; lineNumber < lines.size(); lineNumber++) {
-            final String line = lines.get(lineNumber);
-            if(charsLeft < line.length()) {
-              break;
+          final int index = stateManager.index;
+
+          try {
+            r.read(stateManager);
+          } catch(final GasParserException e) {
+            int charsLeft = index;
+            int lineNumber;
+            for(lineNumber = 0; lineNumber < lines.size(); lineNumber++) {
+              final String line = lines.get(lineNumber);
+              if(charsLeft < line.length()) {
+                break;
+              }
+
+              charsLeft -= line.length();
             }
 
-            charsLeft -= line.length();
+            System.err.println("Failed to load gas - line " + (lineNumber - 1) + " char " + charsLeft + ": " + e.getMessage() + ", got " + stateManager.readUntil(c -> c == '\r' || c == '\n'));
+            e.printStackTrace();
+            return new GasEntry(new HashMap<>(), new HashMap<>(), new HashMap<>());
           }
 
-          System.err.println("Failed to load gas - line " + (lineNumber - 1) + " char " + charsLeft + ": " + e.getMessage() + ", got " + stateManager.readUntil(c -> c == '\r' || c == '\n'));
-          e.printStackTrace();
-          return new GasEntry(new HashMap<>(), new HashMap<>(), new HashMap<>());
+          if(stateManager.stop) {
+            buildEntry(stateManager.properties).children().forEach(entry -> roots.put(entry.getKey(), entry.getValue()));
+
+            stateManager.skipWhitespaceAndComments();
+            if(stateManager.hasMore()) {
+              prevStateManagerPos = stateManager.index;
+              break inner;
+            }
+
+            break outer;
+          }
         }
 
-        if(stateManager.stop) {
+        if(stateManager.newState != null) {
+          stateManager.state = stateManager.newState;
+          stateManager.newState = null;
+        } else {
+          System.err.println("Failed to load gas " + stateManager.index); //TODO explain why
           break outer;
         }
       }
-
-      if(stateManager.newState != null) {
-        stateManager.state = stateManager.newState;
-        stateManager.newState = null;
-      } else {
-        System.err.println("Failed to load gas " + stateManager.index); //TODO explain why
-        break;
-      }
     }
 
-    return buildEntry(stateManager.properties);
+    return new GasEntry(roots, new HashMap<>(), new HashMap<>());
   }
 
   private static GasEntry buildEntry(final Map<String, Object> map) {
@@ -266,6 +282,10 @@ public final class GasLoader {
     }
 
     public String read(final int length) {
+      if(this.index + length >= this.gas.length()) {
+        return "";
+      }
+
       return this.gas.substring(this.index, this.index + length);
     }
 

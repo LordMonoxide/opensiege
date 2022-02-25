@@ -12,7 +12,9 @@ import static org.lwjgl.opengl.GL11C.GL_BLEND;
 import static org.lwjgl.opengl.GL11C.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11C.GL_CULL_FACE;
 import static org.lwjgl.opengl.GL11C.GL_DEPTH_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11C.GL_DEPTH_COMPONENT;
 import static org.lwjgl.opengl.GL11C.GL_DEPTH_TEST;
+import static org.lwjgl.opengl.GL11C.GL_LESS;
 import static org.lwjgl.opengl.GL11C.GL_ONE_MINUS_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11C.GL_RGB;
 import static org.lwjgl.opengl.GL11C.GL_SRC_ALPHA;
@@ -22,11 +24,14 @@ import static org.lwjgl.opengl.GL11C.GL_VERSION;
 import static org.lwjgl.opengl.GL11C.glBlendFunc;
 import static org.lwjgl.opengl.GL11C.glClear;
 import static org.lwjgl.opengl.GL11C.glClearColor;
+import static org.lwjgl.opengl.GL11C.glDepthFunc;
+import static org.lwjgl.opengl.GL11C.glDepthMask;
 import static org.lwjgl.opengl.GL11C.glEnable;
 import static org.lwjgl.opengl.GL11C.glGetString;
 import static org.lwjgl.opengl.GL11C.glViewport;
 import static org.lwjgl.opengl.GL20.GL_SHADING_LANGUAGE_VERSION;
 import static org.lwjgl.opengl.GL30C.GL_COLOR_ATTACHMENT0;
+import static org.lwjgl.opengl.GL30C.GL_DEPTH_ATTACHMENT;
 
 public class Context {
   private final Window window;
@@ -35,6 +40,7 @@ public class Context {
   private final Shader postShader;
   private FrameBuffer postBuffer;
   private Texture postTexture;
+  private Texture depthTexture;
 
   public final Camera camera;
   private final Matrix4f proj = new Matrix4f();
@@ -62,7 +68,11 @@ public class Context {
     System.out.println("Device manufacturer: " + glGetString(GL_VENDOR));
 
     glEnable(GL_DEPTH_TEST);
+    glDepthMask(true);
+    glDepthFunc(GL_LESS);
+
     glEnable(GL_CULL_FACE);
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -150,6 +160,15 @@ public class Context {
       texture.dataFormat(GL_RGB);
     });
 
-    this.postBuffer = FrameBuffer.create(fb -> fb.attachment(this.postTexture, GL_COLOR_ATTACHMENT0));
+    this.depthTexture = Texture.create(texture -> {
+      texture.size(width, height);
+      texture.internalFormat(GL_DEPTH_COMPONENT);
+      texture.dataFormat(GL_DEPTH_COMPONENT);
+    });
+
+    this.postBuffer = FrameBuffer.create(fb -> {
+      fb.attachment(this.postTexture, GL_COLOR_ATTACHMENT0);
+      fb.attachment(this.depthTexture, GL_DEPTH_ATTACHMENT);
+    });
   }
 }

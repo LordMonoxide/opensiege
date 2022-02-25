@@ -118,7 +118,7 @@ public class TankFileSystemProvider extends FileSystemProvider {
   }
 
   @Override
-  public InputStream newInputStream(Path path, OpenOption... options) throws IOException {
+  public InputStream newInputStream(final Path path, final OpenOption... options) throws IOException {
     if(!(path instanceof TankPath)) {
       throw new ProviderMismatchException();
     }

@@ -83,7 +83,8 @@ public final class Launcher {
       System.out.println();
       System.out.print("Which map would you like to load? ");
 
-      mapId = scanner.nextLine();
+      //TODO mapId = scanner.nextLine();
+      mapId = "map_world";
 
       if(maps.containsKey(mapId)) {
         break;

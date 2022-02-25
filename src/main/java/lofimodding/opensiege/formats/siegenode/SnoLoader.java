@@ -1,5 +1,7 @@
 package lofimodding.opensiege.formats.siegenode;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.joml.Matrix3f;
@@ -27,10 +29,12 @@ public final class SnoLoader {
 
   public static Sno load(final InputStream file) throws IOException {
     final SnoHeader header = readHeader(file);
+    final Int2ObjectMap<SnoDoor> doors = readDoors(file, header.doorCount());
     final List<SnoSpot> spots = readSpots(file, header.spotCount());
-    final List<SnoDoor> doors = readDoors(file, header.doorCount());
     final List<SnoCorner> corners = readCorners(file, header.cornerCount());
     final List<SnoSurface> surfaces = readSurfaces(file, header.textureCount());
+
+    //TODO texsetabbr as per https://github.com/OpenSiege/OpenSiege/blob/master/src/osgPlugins/ReaderWriterSNO.cpp
 
     return new Sno(header, spots, doors, corners, surfaces);
   }
@@ -61,6 +65,26 @@ public final class SnoLoader {
     return new SnoHeader(version, doorCount, spotCount, cornerCount, faceCount, textureCount, minBb, maxBb, dataCrc);
   }
 
+  private static Int2ObjectMap<SnoDoor> readDoors(final InputStream file, final int count) throws IOException {
+    final Int2ObjectMap<SnoDoor> doors = new Int2ObjectOpenHashMap<>(count);
+
+    for(int i = 0; i < count; i++) {
+      final int index = readInt(file);
+      final Vector3f translation = readVec3(file);
+      final Matrix3f rotation = readMat3(file);
+
+      final IntList hotspots = new IntArrayList();
+      final int hotspotCount = readInt(file);
+      for(int hotspotIndex = 0; hotspotIndex < hotspotCount; hotspotIndex++) {
+        hotspots.add(readInt(file));
+      }
+
+      doors.put(index, new SnoDoor(index, rotation, translation, hotspots));
+    }
+
+    return doors;
+  }
+
   private static List<SnoSpot> readSpots(final InputStream file, final int count) throws IOException {
     final List<SnoSpot> spots = new ArrayList<>(count);
 
@@ -73,26 +97,6 @@ public final class SnoLoader {
     }
 
     return spots;
-  }
-
-  private static List<SnoDoor> readDoors(final InputStream file, final int count) throws IOException {
-    final List<SnoDoor> doors = new ArrayList<>(count);
-
-    for(int i = 0; i < count; i++) {
-      final int index = readInt(file);
-      final Matrix3f rotation = readMat3(file);
-      final Vector3f translation = readVec3(file);
-
-      final IntList hotspots = new IntArrayList();
-      final int hotspotCount = readInt(file);
-      for(int hotspotIndex = 0; hotspotIndex < hotspotCount; hotspotIndex++) {
-        hotspots.add(readInt(file));
-      }
-
-      doors.add(new SnoDoor(index, rotation, translation, hotspots));
-    }
-
-    return doors;
   }
 
   private static List<SnoCorner> readCorners(final InputStream file, final int count) throws IOException {
