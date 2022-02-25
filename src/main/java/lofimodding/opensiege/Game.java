@@ -60,7 +60,7 @@ public class Game {
 
   private final GoDb goDb;
 
-  public Game(final Path tankRoot, final GoDb goDb, final String mapId) throws IOException {
+  public Game(final Path tankRoot, final GoDb goDb, final String mapId, final String regionId, final int nodeGuid) throws IOException {
     this.goDb = goDb;
 
     this.window = new Window("OpenSiege", WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -86,11 +86,12 @@ public class Game {
     final World map = goDb.get(World.class, "map");
 
     final Path mapPath = tankRoot.resolve("world").resolve("maps").resolve(map.getName());
-    final Path regionPath = mapPath.resolve("regions").resolve(map.getStartRegionName());
+    final Path regionPath = mapPath.resolve("regions").resolve(regionId);
 
     goDb.addObject(GasLoader.load(Files.newInputStream(regionPath.resolve("main.gas"))));
     goDb.addObject(GasLoader.load(Files.newInputStream(regionPath.resolve("terrain_nodes").resolve("nodes.gas"))));
 
+    // Load all siege nodes
     try(final Stream<Path> nodeStream = Files.walk(tankRoot.resolve("world").resolve("global").resolve("siege_nodes"))) {
       nodeStream
         .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".gas"))
@@ -110,8 +111,7 @@ public class Game {
     this.transforms2 = new Shader.UniformBuffer((long)identityBuffer.capacity() * Float.BYTES, Shader.UniformBuffer.TRANSFORM2);
 
     final Scene scene = new Scene(tankRoot, textureManager, goDb, this.transforms2);
-    scene.setRegion(map.getCamera().getPosition().getNodeId());
-//    scene.setRegion(0xc53a1f72);
+    scene.setRegion(nodeGuid);
 
     final MatrixStack matrixStack = new MatrixStack();
 

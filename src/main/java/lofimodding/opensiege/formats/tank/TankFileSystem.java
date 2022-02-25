@@ -22,6 +22,7 @@ import java.nio.file.spi.FileSystemProvider;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -75,6 +76,8 @@ public class TankFileSystem extends FileSystem {
 
   @Override
   public Path getPath(final String first, final String... more) {
+    Objects.requireNonNull(first, "Path must not be null");
+
     final String path;
     if(more.length == 0) {
       path = first;

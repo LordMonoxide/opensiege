@@ -4,6 +4,7 @@ import lofimodding.opensiege.go.GameObject;
 import lofimodding.opensiege.go.GoType;
 import lofimodding.opensiege.go.GoValue;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -86,6 +87,7 @@ public class Snode extends GameObject {
     return this.door;
   }
 
+  @Nullable
   public Door getDoor(final int id) {
     for(final Door door : this.door) {
       if(door.id == id) {
@@ -93,7 +95,7 @@ public class Snode extends GameObject {
       }
     }
 
-    throw new RuntimeException("Failed to find door " + id);
+    return null;
   }
 
   public static class Door {

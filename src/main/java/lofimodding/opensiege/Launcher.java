@@ -3,6 +3,8 @@ package lofimodding.opensiege;
 import lofimodding.opensiege.formats.gas.GasEntry;
 import lofimodding.opensiege.formats.gas.GasLoader;
 import lofimodding.opensiege.go.GoDb;
+import lofimodding.opensiege.world.StartGroup;
+import lofimodding.opensiege.world.World;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
@@ -83,8 +86,7 @@ public final class Launcher {
       System.out.println();
       System.out.print("Which map would you like to load? ");
 
-      //TODO mapId = scanner.nextLine();
-      mapId = "map_world";
+      mapId = scanner.nextLine();
 
       if(maps.containsKey(mapId)) {
         break;
@@ -96,6 +98,62 @@ public final class Launcher {
 
     go.addObject(mapGas.get(mapId));
 
-    new Game(p, go, mapId);
+    final World map = go.get(World.class, "map");
+    final Path mapPath = p.resolve("world").resolve("maps").resolve(map.getName());
+
+    final GasEntry startPositions = GasLoader.load(Files.newInputStream(mapPath.resolve("info").resolve("start_positions.gas")));
+    go.addObject(startPositions.getChild("start_positions"));
+
+    final Map<String, String> regions = new HashMap<>();
+
+    for(final Map.Entry<String, StartGroup> entry : go.get(StartGroup.class).entrySet()) {
+      final StartGroup startGroup = entry.getValue();
+      regions.put(entry.getKey(), startGroup.getScreenName() + " - " + startGroup.getDescription());
+    }
+
+    String regionName;
+
+    while(true) {
+      System.out.println();
+      System.out.println("Available regions:");
+
+      for(final Map.Entry<String, String> entry : regions.entrySet()) {
+        System.out.println(entry.getKey() + ": " + entry.getValue());
+      }
+
+      System.out.println();
+      System.out.print("Which region would you like to load? ");
+
+      regionName = scanner.nextLine();
+
+      if(regions.containsKey(regionName)) {
+        break;
+      }
+
+      System.out.println();
+      System.out.println("Please enter a valid region ID.");
+    }
+
+    final StartGroup.StartPosition startPosition = go.get(StartGroup.class, regionName).getStartPositions().get(0);
+
+    String regionId = null;
+
+    // Find the starting region based on camera location
+    try(final DirectoryStream<Path> nodeStream = Files.newDirectoryStream(mapPath.resolve("regions"), Files::isDirectory)) {
+      for(final Path region : nodeStream) {
+        final GasEntry nodes = GasLoader.load(Files.newInputStream(region.resolve("index").resolve("streamer_node_index.gas")));
+
+        final List<Integer> nodeGuids = (List<Integer>)nodes.getChild("streamer_node_index").get("");
+        if(nodeGuids.contains(startPosition.getPosition().getNodeId())) {
+          regionId = region.getFileName().toString();
+        }
+      }
+    }
+
+    if(regionId == null) {
+      throw new RuntimeException("Couldn't find region ID for map " + map.getName());
+    }
+
+    new Game(p, go, mapId, regionId, startPosition.getPosition().getNodeId());
   }
 }

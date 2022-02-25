@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
 public final class GasLoader {
   private GasLoader() { }
 
-  private static final Pattern WORLD_POS_REGEX = Pattern.compile("\\d+\\.\\d+\\s*,\\s*\\d+\\.\\d+\\s*,\\s*\\d+\\.\\d+\\s*,\\s*0x[\\da-z]+\\s*");
+  private static final Pattern WORLD_POS_REGEX = Pattern.compile("-?\\d+(?:\\.\\d+)?\\s*,\\s*-?\\d+(?:\\.\\d+)?\\s*,\\s*-?\\d+(?:\\.\\d+)?\\s*,\\s*0x[\\da-zA-Z]+\\s*");
   private static final Pattern TIME_REGEX = Pattern.compile("(\\d+)h(\\d+)m");
 
   private static final Reader READ_HEADER = new ReadHeader();
@@ -144,8 +144,12 @@ public final class GasLoader {
     for(final Map.Entry<String, Object> entry : map.entrySet()) {
       if(entry.getValue() instanceof final List child) {
         for(final Object o : child) {
-          final Map<String, Object> childMap = (Map<String, Object>)o;
-          arrayChildren.computeIfAbsent(entry.getKey(), key -> new ArrayList<>()).add(buildEntry(childMap));
+          if(o instanceof Map<?, ?>) {
+            final Map<String, Object> childMap = (Map<String, Object>)o;
+            arrayChildren.computeIfAbsent(entry.getKey(), key -> new ArrayList<>()).add(buildEntry(childMap));
+          } else {
+            ((List<Object>)values.computeIfAbsent(entry.getKey(), key -> new ArrayList<>())).add(o);
+          }
         }
       } else if(entry.getValue() instanceof final Map child) {
         children.put(entry.getKey(), buildEntry(child));
@@ -162,9 +166,10 @@ public final class GasLoader {
       String[] errors = null;
 
       outer:
-      for(final State state : states) {
-        for(int i = 0; i < state.readers.length; i++) {
-          final Reader reader = state.readers[i];
+      for(int i = 0; i < states.length; i++) {
+        final State state = states[i];
+
+        for(final Reader reader : state.readers) {
           stateManager.skipWhitespaceAndComments();
 
           try {
@@ -225,6 +230,16 @@ public final class GasLoader {
       if(header.endsWith("*")) {
         this.header = header.substring(0, header.length() - 1);
         this.headerList = true;
+      } else if(this.current.element().containsKey(header)) {
+        // Convert to a list
+        if(!(this.current.element().get(header) instanceof List<?>)) {
+          final List<Object> list = new ArrayList<>();
+          list.add(this.current.element().get(header));
+          this.current.element().put(header, list);
+        }
+
+        this.header = header;
+        this.headerList = true;
       } else {
         this.header = header;
         this.headerList = false;
@@ -234,6 +249,9 @@ public final class GasLoader {
     public void setKey(final String key) {
       if(key.endsWith("*")) {
         this.key = key.substring(0, key.length() - 1);
+        this.keyList = true;
+      } else if(this.current.element().containsKey(key)) {
+        this.key = key;
         this.keyList = true;
       } else {
         this.key = key;
@@ -346,11 +364,11 @@ public final class GasLoader {
     }
 
     public String readKey() {
-      return this.readUntil(c -> (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_');
+      return this.readUntil(c -> (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '*');
     }
 
     public String readValue() {
-      return this.readUntil(c -> (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '.' && c != '\\');
+      return this.readUntil(c -> (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '-' && c != '.' && c != '\\');
     }
 
     public void skipUntil(final CharPredicate until) {
@@ -412,9 +430,13 @@ public final class GasLoader {
       this.index = this.mark;
     }
 
-    public void push() throws GasParserException {
+    public void push() {
       if(this.current.element().containsKey(this.header) && !this.headerList) {
-        throw new GasParserException("Key " + this.header + " already defined");
+        this.headerList = true;
+
+        final List<Object> list = new ArrayList<>();
+        list.add(this.current.element().get(this.header));
+        this.current.element().put(this.header, list);
       }
 
       final Map<String, Object> map = new HashMap<>();

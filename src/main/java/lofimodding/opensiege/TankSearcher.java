@@ -33,6 +33,8 @@ public final class TankSearcher {
       }
     });
 
+    System.out.println("Search: " + search);
+    System.out.println("Found:");
     refs.forEach(System.out::println);
   }
 }

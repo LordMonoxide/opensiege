@@ -91,7 +91,7 @@ public class Scene {
   private final FloatBuffer identityBuffer = BufferUtils.createFloatBuffer(4 * 4);
 
   private void drawChunk(final MatrixStack matrixStack, final SceneChunk chunk, final int distance) {
-    if(this.visited.contains(chunk) || distance > 5) {
+    if(this.visited.contains(chunk) || distance > 1000) {
       return;
     }
 
@@ -107,6 +107,10 @@ public class Scene {
 
     for(final SnoDoor door : chunk.renderer.sno.doors().values()) {
       final Snode.Door snodeDoor = chunk.snode.getDoor(door.index());
+
+      if(snodeDoor == null) {
+        continue;
+      }
 
       matrixStack.push();
       matrixStack.translate(door.translation());
