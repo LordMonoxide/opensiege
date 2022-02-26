@@ -27,14 +27,12 @@ import static lofimodding.opensiege.formats.StreamReader.readVec4b;
 public final class SnoLoader {
   private SnoLoader() { }
 
-  public static Sno load(final InputStream file) throws IOException {
+  public static Sno load(final InputStream file, final String texSet) throws IOException {
     final SnoHeader header = readHeader(file);
     final Int2ObjectMap<SnoDoor> doors = readDoors(file, header.doorCount());
     final List<SnoSpot> spots = readSpots(file, header.spotCount());
     final List<SnoCorner> corners = readCorners(file, header.cornerCount());
-    final List<SnoSurface> surfaces = readSurfaces(file, header.textureCount());
-
-    //TODO texsetabbr as per https://github.com/OpenSiege/OpenSiege/blob/master/src/osgPlugins/ReaderWriterSNO.cpp
+    final List<SnoSurface> surfaces = readSurfaces(file, header.textureCount(), texSet);
 
     return new Sno(header, spots, doors, corners, surfaces);
   }
@@ -118,11 +116,11 @@ public final class SnoLoader {
     return corners;
   }
 
-  private static List<SnoSurface> readSurfaces(final InputStream file, final int count) throws IOException {
+  private static List<SnoSurface> readSurfaces(final InputStream file, final int count, final String texSet) throws IOException {
     final List<SnoSurface> surfaces = new ArrayList<>(count);
 
     for(int i = 0; i < count; i++) {
-      final String texture = readCString(file);
+      final String texture = readCString(file).replace("_xxx_", '_' + texSet + '_');
       final int cornerStart = readInt(file);
       final int cornerSpan = readInt(file);
       final int cornerCount = readInt(file);

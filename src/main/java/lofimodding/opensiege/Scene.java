@@ -65,7 +65,7 @@ public class Scene {
     final Path meshSno = this.root.resolveSibling(meshFile + ".sno");
     final Sno sno;
     try {
-      sno = SnoLoader.load(Files.newInputStream(meshSno));
+      sno = SnoLoader.load(Files.newInputStream(meshSno), snode.getTexSetAbbr());
     } catch(final IOException e) {
       throw new RuntimeException(e);
     }

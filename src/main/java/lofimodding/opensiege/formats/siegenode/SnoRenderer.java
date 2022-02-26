@@ -15,10 +15,8 @@ public class SnoRenderer {
   public final Mesh mesh;
   public final Object2IntMap<String> textureIndices = new Object2IntOpenHashMap<>();
 
-  private final int maxTextures;
-
   public SnoRenderer(final Sno sno) {
-    this.maxTextures = glGetInteger(GL_MAX_TEXTURE_IMAGE_UNITS);
+    final int maxTextures = glGetInteger(GL_MAX_TEXTURE_IMAGE_UNITS);
 
     this.sno = sno;
 
@@ -113,7 +111,7 @@ public class SnoRenderer {
       colour += colourStep;
     }
 
-    if(this.textureIndices.size() > this.maxTextures) {
+    if(this.textureIndices.size() > maxTextures) {
       throw new RuntimeException("Current implementation only supports 16 textures per mesh, needed " + this.textureIndices.size());
     }
 
