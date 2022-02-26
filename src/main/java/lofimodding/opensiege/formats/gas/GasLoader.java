@@ -75,7 +75,7 @@ public final class GasLoader {
 
     final String gas = builder.toString();
 
-    final Map<String, GasEntry> roots = new HashMap<>();
+    final Map<String, List<GasEntry>> roots = new HashMap<>();
 
     int prevStateManagerPos = 0;
 
@@ -111,7 +111,7 @@ public final class GasLoader {
           }
 
           if(stateManager.stop) {
-            buildEntry(stateManager.properties).children().forEach(entry -> roots.put(entry.getKey(), entry.getValue()));
+            buildEntry(stateManager.properties).children().forEach(entry -> roots.computeIfAbsent(entry.getKey(), key -> new ArrayList<>()).add(entry.getValue()));
 
             stateManager.skipWhitespaceAndComments();
             if(stateManager.hasMore()) {
@@ -133,7 +133,18 @@ public final class GasLoader {
       }
     }
 
-    return new GasEntry(roots, new HashMap<>(), new HashMap<>());
+    final Map<String, GasEntry> children = new HashMap<>();
+    final Map<String, List<GasEntry>> arrayChildren = new HashMap<>();
+
+    for(final Map.Entry<String, List<GasEntry>> entry : roots.entrySet()) {
+      if(entry.getValue().size() > 1) {
+        arrayChildren.put(entry.getKey(), entry.getValue());
+      } else {
+        children.put(entry.getKey(), entry.getValue().get(0));
+      }
+    }
+
+    return new GasEntry(children, arrayChildren, new HashMap<>());
   }
 
   private static GasEntry buildEntry(final Map<String, Object> map) {

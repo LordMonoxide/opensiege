@@ -91,7 +91,7 @@ public class Scene {
   private final FloatBuffer identityBuffer = BufferUtils.createFloatBuffer(4 * 4);
 
   private void drawChunk(final MatrixStack matrixStack, final SceneChunk chunk, final int distance) {
-    if(this.visited.contains(chunk) || distance > 1000) {
+    if(this.visited.contains(chunk) || distance > 3000) {
       return;
     }
 

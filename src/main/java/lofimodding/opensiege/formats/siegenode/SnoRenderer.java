@@ -7,13 +7,19 @@ import org.joml.Vector3f;
 import org.joml.Vector3i;
 
 import static org.lwjgl.opengl.GL11C.GL_TRIANGLES;
+import static org.lwjgl.opengl.GL11C.glGetInteger;
+import static org.lwjgl.opengl.GL20C.GL_MAX_TEXTURE_IMAGE_UNITS;
 
 public class SnoRenderer {
   public final Sno sno;
   public final Mesh mesh;
   public final Object2IntMap<String> textureIndices = new Object2IntOpenHashMap<>();
 
+  private final int maxTextures;
+
   public SnoRenderer(final Sno sno) {
+    this.maxTextures = glGetInteger(GL_MAX_TEXTURE_IMAGE_UNITS);
+
     this.sno = sno;
 
     int vertexCount = 0;
@@ -51,6 +57,8 @@ public class SnoRenderer {
     int colour = 0;
 
     for(final SnoDoor door : sno.doors().values()) {
+      if(true) break; //TODO
+
       final Vector3f pos = new Vector3f(0.5f, 0.0f, 0.0f);
       pos.mul(door.rotation()).add(door.translation());
 
@@ -105,8 +113,8 @@ public class SnoRenderer {
       colour += colourStep;
     }
 
-    if(this.textureIndices.size() > 16) {
-      throw new RuntimeException("Current implementation only supports 16 textures per mesh");
+    if(this.textureIndices.size() > this.maxTextures) {
+      throw new RuntimeException("Current implementation only supports 16 textures per mesh, needed " + this.textureIndices.size());
     }
 
     this.mesh = new Mesh(GL_TRIANGLES, vertices, vertices.length / 13);
