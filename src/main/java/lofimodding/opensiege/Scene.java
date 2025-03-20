@@ -45,6 +45,7 @@ public class Scene {
     this.regionGuid = guid;
   }
 
+  @Nullable
   private SceneChunk getChunk(final int guid) {
     if(this.cache.containsKey(guid)) {
       return this.cache.get(guid);
@@ -59,7 +60,9 @@ public class Scene {
     final String meshFile = this.findMeshFilename(snode.getMeshGuid());
 
     if(meshFile == null) {
-      throw new RuntimeException("Failed to find node sno with mesh GUID 0x" + String.format("%08x", snode.getMeshGuid()));
+      System.err.println("Failed to find node sno with mesh GUID 0x" + String.format("%08x", snode.getMeshGuid()));
+      this.cache.put(guid, null);
+      return null;
     }
 
     final Path meshSno = this.root.resolveSibling(meshFile + ".sno");
@@ -90,8 +93,8 @@ public class Scene {
 
   private final FloatBuffer identityBuffer = BufferUtils.createFloatBuffer(4 * 4);
 
-  private void drawChunk(final MatrixStack matrixStack, final SceneChunk chunk, final int distance) {
-    if(this.visited.contains(chunk) || distance > 3000) {
+  private void drawChunk(final MatrixStack matrixStack, @Nullable final SceneChunk chunk, final int distance) {
+    if(this.visited.contains(chunk) || distance > 3000 || chunk == null) {
       return;
     }
 
@@ -117,15 +120,18 @@ public class Scene {
       matrixStack.top().mul(new Matrix4f(door.rotation()));
 
       final SceneChunk farChunk = this.getChunk(snodeDoor.getFarGuid());
-      final SnoDoor farDoor = farChunk.renderer.sno.getDoor(snodeDoor.getFarDoor());
 
-      final Matrix4f farTransforms = new Matrix4f(farDoor.rotation());
-      farTransforms.translateLocal(farDoor.translation());
-      farTransforms.invert();
-      farTransforms.rotateLocalY((float)Math.PI);
-      matrixStack.top().mul(farTransforms);
+      if(farChunk != null) {
+        final SnoDoor farDoor = farChunk.renderer.sno.getDoor(snodeDoor.getFarDoor());
 
-      this.drawChunk(matrixStack, farChunk, distance + 1);
+        final Matrix4f farTransforms = new Matrix4f(farDoor.rotation());
+        farTransforms.translateLocal(farDoor.translation());
+        farTransforms.invert();
+        farTransforms.rotateLocalY((float)Math.PI);
+        matrixStack.top().mul(farTransforms);
+
+        this.drawChunk(matrixStack, farChunk, distance + 1);
+      }
 
       matrixStack.pop();
     }
