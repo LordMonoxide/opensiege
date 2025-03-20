@@ -88,20 +88,13 @@ public class Game {
     final Path mapPath = tankRoot.resolve("world").resolve("maps").resolve(map.getName());
     final Path regionPath = mapPath.resolve("regions").resolve(regionId);
 
-    goDb.addObject(GasLoader.load(Files.newInputStream(regionPath.resolve("main.gas"))));
-    goDb.addObject(GasLoader.load(Files.newInputStream(regionPath.resolve("terrain_nodes").resolve("nodes.gas"))));
+    goDb.addObject(GasLoader.load(regionPath.resolve("main.gas")));
+    goDb.addObject(GasLoader.load(regionPath.resolve("terrain_nodes").resolve("nodes.gas")));
 
     // Load all siege nodes
     try(final Stream<Path> nodeStream = Files.walk(tankRoot.resolve("world").resolve("global").resolve("siege_nodes"))) {
       nodeStream
         .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".gas"))
-        .map(p -> {
-          try {
-            return Files.newInputStream(p);
-          } catch(final IOException e) {
-            throw new RuntimeException(e);
-          }
-        })
         .map(GasLoader::load)
         .forEach(goDb::addObject);
     }

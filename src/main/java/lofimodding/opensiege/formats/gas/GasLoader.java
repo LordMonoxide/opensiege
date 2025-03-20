@@ -5,8 +5,10 @@ import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
 import java.io.BufferedReader;
-import java.io.InputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -63,8 +65,13 @@ public final class GasLoader {
   private static final State READ_HEX_VALUE_STATE = new State(READ_HEX_VALUE, READ_SEMICOLON);
   private static final State READ_INT_VALUE_STATE = new State(READ_INT_VALUE, READ_SEMICOLON);
 
-  public static GasEntry load(final InputStream file) {
-    final BufferedReader reader = new BufferedReader(new InputStreamReader(file));
+  public static GasEntry load(final Path path) {
+    final BufferedReader reader;
+    try {
+      reader = new BufferedReader(new InputStreamReader(Files.newInputStream(path)));
+    } catch(final IOException e) {
+      throw new RuntimeException(e);
+    }
 
     final StringBuilder builder = new StringBuilder();
     final List<String> lines = new ArrayList<>();
@@ -85,7 +92,7 @@ public final class GasLoader {
       stateManager.index = prevStateManagerPos;
 
       inner:
-      while(stateManager.hasMore()) {
+      while(stateManager.hasMoreSkipWhitespace()) {
         for(final Reader r : stateManager.state.readers) {
           stateManager.skipWhitespaceAndComments();
 
@@ -291,6 +298,11 @@ public final class GasLoader {
     }
 
     public boolean hasMore() {
+      return this.index < this.gas.length();
+    }
+
+    public boolean hasMoreSkipWhitespace() {
+      this.skipWhitespaceAndComments();
       return this.index < this.gas.length();
     }
 
@@ -592,7 +604,7 @@ public final class GasLoader {
 
               stateManager.skipWhitespaceAndComments();
               if(stateManager.read() != ',') {
-                throw new GasParserException("Invalid WorldPos");
+                throw new GasParserException("Invalid WorldPos " + str);
               }
               stateManager.advance();
               stateManager.skipWhitespaceAndComments();
@@ -607,7 +619,7 @@ public final class GasLoader {
                 break;
               } catch(final NumberFormatException ignored) {}
 
-              throw new GasParserException("Invalid hex");
+              throw new GasParserException("Invalid hex " + s);
             }
 
             throw new GasParserException("Missing node ID");
@@ -631,7 +643,9 @@ public final class GasLoader {
               break;
             } catch(final NumberFormatException ignored) {}
 
-            throw new GasParserException("Invalid hex");
+            System.err.println("Invalid hex " + str);
+            val = 0;
+            break;
           }
 
           try {

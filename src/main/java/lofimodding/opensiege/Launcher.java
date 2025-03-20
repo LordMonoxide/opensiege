@@ -61,7 +61,7 @@ public final class Launcher {
 
     try(final DirectoryStream<Path> ds = Files.newDirectoryStream(p.resolve("world/maps"), Files::isDirectory)) {
       for(final Path child : ds) {
-        final GasEntry root = GasLoader.load(Files.newInputStream(child.resolve("main.gas")));
+        final GasEntry root = GasLoader.load(child.resolve("main.gas"));
         final GasEntry data = root.getChild("t:map,n:map");
         maps.put(child.getFileName().toString(), data.getString("screen_name") + " - " + data.getString("description"));
         mapGas.put(child.getFileName().toString(), root);
@@ -101,7 +101,7 @@ public final class Launcher {
     final World map = go.get(World.class, "map");
     final Path mapPath = p.resolve("world").resolve("maps").resolve(map.getName());
 
-    final GasEntry startPositions = GasLoader.load(Files.newInputStream(mapPath.resolve("info").resolve("start_positions.gas")));
+    final GasEntry startPositions = GasLoader.load(mapPath.resolve("info").resolve("start_positions.gas"));
     go.addObject(startPositions.getChild("start_positions"));
 
     final Map<String, String> regions = new HashMap<>();
@@ -141,7 +141,7 @@ public final class Launcher {
     // Find the starting region based on camera location
     try(final DirectoryStream<Path> nodeStream = Files.newDirectoryStream(mapPath.resolve("regions"), Files::isDirectory)) {
       for(final Path region : nodeStream) {
-        final GasEntry nodes = GasLoader.load(Files.newInputStream(region.resolve("index").resolve("streamer_node_index.gas")));
+        final GasEntry nodes = GasLoader.load(region.resolve("index").resolve("streamer_node_index.gas"));
 
         final List<Integer> nodeGuids = (List<Integer>)nodes.getChild("streamer_node_index").get("");
         if(nodeGuids.contains(startPosition.getPosition().getNodeId())) {

@@ -51,16 +51,16 @@ public class Scene {
       return this.cache.get(guid);
     }
 
-    final Snode snode = this.goDb.get(Snode.class, "0x" + String.format("%08x", guid));
+    final Snode snode = this.goDb.get(Snode.class, "%#010x".formatted(guid));
 
     if(snode == null) {
-      throw new RuntimeException("Snode 0x" + Integer.toHexString(guid) + " not found");
+      throw new RuntimeException("Snode %#010x not found".formatted(guid));
     }
 
     final String meshFile = this.findMeshFilename(snode.getMeshGuid());
 
     if(meshFile == null) {
-      System.err.println("Failed to find node sno with mesh GUID 0x" + String.format("%08x", snode.getMeshGuid()));
+      System.err.printf("Failed to find node sno with mesh GUID %#010x%n", snode.getMeshGuid());
       this.cache.put(guid, null);
       return null;
     }
