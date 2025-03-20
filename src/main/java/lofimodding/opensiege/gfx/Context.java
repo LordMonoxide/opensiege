@@ -14,11 +14,13 @@ import static org.lwjgl.opengl.GL11C.GL_CULL_FACE;
 import static org.lwjgl.opengl.GL11C.GL_DEPTH_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11C.GL_DEPTH_COMPONENT;
 import static org.lwjgl.opengl.GL11C.GL_DEPTH_TEST;
+import static org.lwjgl.opengl.GL11C.GL_FLOAT;
 import static org.lwjgl.opengl.GL11C.GL_LESS;
 import static org.lwjgl.opengl.GL11C.GL_ONE_MINUS_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11C.GL_RGB;
 import static org.lwjgl.opengl.GL11C.GL_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11C.GL_TRIANGLES;
+import static org.lwjgl.opengl.GL11C.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11C.GL_VENDOR;
 import static org.lwjgl.opengl.GL11C.GL_VERSION;
 import static org.lwjgl.opengl.GL11C.glBlendFunc;
@@ -52,6 +54,9 @@ public class Context {
 
   private int width;
   private int height;
+
+  /** Set when resizing the window so that the render buffers will be resized on the next frame */
+  private boolean resizeRenderBuffers;
 
   public Context(final Window window, final Camera camera) throws IOException {
     this.window = window;
@@ -113,9 +118,10 @@ public class Context {
   }
 
   private void draw() {
-    //TODO: for some reason it's extremely laggy on my Intel UHD620 with vsync enabled... but this fixes it
-    //      https://discourse.glfw.org/t/swap-interval-n-cause-1-n-fps-except-if-glgeterror-is-called/1298/3
-    // glGetError();
+    if(this.resizeRenderBuffers) {
+      this.resizeRenderBuffers = false;
+      this.resizeRenderBuffers();
+    }
 
     glViewport(0, 0, this.width, this.height);
     this.pre();
@@ -154,17 +160,35 @@ public class Context {
 
     this.proj.setPerspective((float)Math.toRadians(45.0f), (float)width / height, 0.1f, 500.0f);
 
+    this.resizeRenderBuffers = true;
+  }
+
+  private void resizeRenderBuffers() {
+    if(this.postTexture != null) {
+      this.postTexture.delete();
+    }
+
     this.postTexture = Texture.create(texture -> {
-      texture.size(width, height);
+      texture.size(this.width, this.height);
       texture.internalFormat(GL_RGB);
       texture.dataFormat(GL_RGB);
+      texture.dataType(GL_UNSIGNED_BYTE);
     });
 
+    if(this.depthTexture != null) {
+      this.depthTexture.delete();
+    }
+
     this.depthTexture = Texture.create(texture -> {
-      texture.size(width, height);
+      texture.size(this.width, this.height);
       texture.internalFormat(GL_DEPTH_COMPONENT);
       texture.dataFormat(GL_DEPTH_COMPONENT);
+      texture.dataType(GL_FLOAT);
     });
+
+    if(this.postBuffer != null) {
+      this.postBuffer.delete();
+    }
 
     this.postBuffer = FrameBuffer.create(fb -> {
       fb.attachment(this.postTexture, GL_COLOR_ATTACHMENT0);

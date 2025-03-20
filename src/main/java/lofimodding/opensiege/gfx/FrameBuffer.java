@@ -1,5 +1,8 @@
 package lofimodding.opensiege.gfx;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -15,6 +18,7 @@ import static org.lwjgl.opengl.GL30C.GL_RENDERBUFFER;
 import static org.lwjgl.opengl.GL30C.glBindFramebuffer;
 import static org.lwjgl.opengl.GL30C.glBindRenderbuffer;
 import static org.lwjgl.opengl.GL30C.glCheckFramebufferStatus;
+import static org.lwjgl.opengl.GL30C.glDeleteRenderbuffers;
 import static org.lwjgl.opengl.GL30C.glFramebufferRenderbuffer;
 import static org.lwjgl.opengl.GL30C.glFramebufferTexture2D;
 import static org.lwjgl.opengl.GL30C.glGenFramebuffers;
@@ -44,7 +48,9 @@ public class FrameBuffer {
       glFramebufferTexture2D(GL_FRAMEBUFFER, attachmentTypes[i], GL_TEXTURE_2D, attachmentIds[i], 0);
     }
 
-    glDrawBuffers(drawBuffers);
+    if(drawBuffers.length != 0) {
+      glDrawBuffers(drawBuffers);
+    }
 
     if(readBuffer != 0) {
       glReadBuffer(readBuffer);
@@ -68,14 +74,18 @@ public class FrameBuffer {
     unbind();
   }
 
+  public void delete() {
+    glDeleteRenderbuffers(this.id);
+  }
+
   public void bind() {
     glBindFramebuffer(GL_FRAMEBUFFER, this.id);
   }
 
   public static class Builder {
-    private final List<Integer> attachmentIds = new ArrayList<>();
-    private final List<Integer> attachmentTypes = new ArrayList<>();
-    private final List<Integer> drawBuffers = new ArrayList<>();
+    private final IntList attachmentIds = new IntArrayList();
+    private final IntList attachmentTypes = new IntArrayList();
+    private final IntList drawBuffers = new IntArrayList();
     private int readBuffer;
     private int rbStorageFormat;
     private int rbAttachment;
@@ -108,9 +118,9 @@ public class FrameBuffer {
 
     FrameBuffer build() {
       return new FrameBuffer(
-        this.attachmentIds.isEmpty() ? new int[0] : this.attachmentIds.stream().mapToInt(Integer::intValue).toArray(),
-        this.attachmentTypes.isEmpty() ? new int[0] : this.attachmentTypes.stream().mapToInt(Integer::intValue).toArray(),
-        this.drawBuffers.isEmpty() ? new int[] { GL_BACK } : this.drawBuffers.stream().mapToInt(Integer::intValue).toArray(),
+        this.attachmentIds.toIntArray(),
+        this.attachmentTypes.toIntArray(),
+        this.drawBuffers.toIntArray(),
         this.readBuffer,
         this.rbStorageFormat,
         this.rbAttachment,

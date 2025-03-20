@@ -17,6 +17,7 @@ import static org.lwjgl.opengl.GL11C.GL_TEXTURE_WRAP_S;
 import static org.lwjgl.opengl.GL11C.GL_TEXTURE_WRAP_T;
 import static org.lwjgl.opengl.GL11C.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11C.glBindTexture;
+import static org.lwjgl.opengl.GL11C.glDeleteTextures;
 import static org.lwjgl.opengl.GL11C.glGenTextures;
 import static org.lwjgl.opengl.GL11C.glTexImage2D;
 import static org.lwjgl.opengl.GL11C.glTexParameteri;
@@ -83,6 +84,10 @@ public class Texture {
 
   public void use() {
     this.use(0);
+  }
+
+  public void delete() {
+    glDeleteTextures(this.id);
   }
 
   public static class Builder {
@@ -173,8 +178,8 @@ public class Texture {
     private ByteBuffer data;
     private int w, h;
 
-    private int dataFormat = GL_SRGB_ALPHA;
-    private int pixelFormat = GL_RGB;
+    private int internalFormat = GL_SRGB_ALPHA;
+    private int dataFormat = GL_RGB;
     private int dataType = GL_UNSIGNED_BYTE;
 
     MipmapBuilder(final int level) {
@@ -187,12 +192,12 @@ public class Texture {
       this.h = h;
     }
 
-    public void dataFormat(final int format) {
-      this.dataFormat = format;
+    public void internalFormat(final int format) {
+      this.internalFormat = format;
     }
 
-    public void pixelFormat(final int format) {
-      this.pixelFormat = format;
+    public void dataFormat(final int format) {
+      this.dataFormat = format;
     }
 
     public void dataType(final int dataType) {
@@ -200,7 +205,7 @@ public class Texture {
     }
 
     void use() {
-      glTexImage2D(GL_TEXTURE_2D, this.level, this.dataFormat, this.w, this.h, 0, this.pixelFormat, this.dataType, this.data);
+      glTexImage2D(GL_TEXTURE_2D, this.level, this.internalFormat, this.w, this.h, 0, this.dataFormat, this.dataType, this.data);
     }
   }
 }
