@@ -1,9 +1,9 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Launcher" type="Application" factoryName="Application">
+  <configuration default="false" name="Launcher (lwjgl debug)" type="Application" factoryName="Application">
     <option name="MAIN_CLASS_NAME" value="lofimodding.opensiege.Launcher" />
     <module name="opensiege.main" />
     <option name="PROGRAM_PARAMETERS" value="&quot;C:\Program Files (x86)\Steam\steamapps\common\Dungeon Siege 1&quot;" />
-    <option name="VM_PARAMETERS" value="-Djoml.fastmath -Djoml.sinLookup -Djoml.useMathFma" />
+    <option name="VM_PARAMETERS" value="-Djoml.fastmath -Djoml.sinLookup -Djoml.useMathFma -javaagent:./lwjglx-debug-1.0.0.jar" />
     <extension name="coverage">
       <pattern>
         <option name="PATTERN" value="lofimodding.opensiege.*" />
