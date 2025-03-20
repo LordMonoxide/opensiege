@@ -12,6 +12,9 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.lwjgl.opengl.GL11C.GL_LINEAR;
+import static org.lwjgl.opengl.GL11C.GL_LINEAR_MIPMAP_LINEAR;
+import static org.lwjgl.opengl.GL11C.GL_NEAREST_MIPMAP_NEAREST;
 import static org.lwjgl.opengl.GL11C.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL12C.GL_BGRA;
 
@@ -36,13 +39,28 @@ public class TextureManager {
       final RawTexture raw = RawTextureLoader.load(Files.newInputStream(this.root.resolveSibling(name + ".raw")));
 
       final Texture texture = Texture.create(builder -> {
-        final ByteBuffer buffer = BufferUtils.createByteBuffer(raw.data().length);
-        buffer.put(raw.data());
+        final ByteBuffer buffer = BufferUtils.createByteBuffer(raw.data()[0].length);
+        buffer.put(raw.data()[0]);
         buffer.flip();
 
         builder.data(buffer, raw.header().width(), raw.header().height());
         builder.dataFormat(GL_BGRA);
         builder.dataType(GL_UNSIGNED_BYTE);
+        builder.minFilter(GL_LINEAR_MIPMAP_LINEAR);
+
+        for(int i = 1; i < raw.header().surfaceCount(); i++) {
+          final int finalI = i;
+          builder.mipmap(i, mipmap -> {
+            final ByteBuffer mipBuffer = BufferUtils.createByteBuffer(raw.data()[finalI].length);
+            mipBuffer.put(raw.data()[finalI]);
+            mipBuffer.flip();
+
+            final int divisor = 1 << finalI;
+            mipmap.data(mipBuffer, raw.header().width() / divisor, raw.header().height() / divisor);
+            mipmap.dataFormat(GL_BGRA);
+            mipmap.dataType(GL_UNSIGNED_BYTE);
+          });
+        }
       });
 
       this.cache.put(name, texture);

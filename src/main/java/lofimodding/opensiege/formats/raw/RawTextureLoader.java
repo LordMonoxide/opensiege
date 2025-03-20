@@ -14,7 +14,13 @@ public final class RawTextureLoader {
     //TODO gas file?
 
     final RawTextureHeader header = readHeader(file);
-    final byte[] data = readBytes(file, header.width() * header.height() * header.format().bpp / 8);
+    final byte[][] data = new byte[header.surfaceCount()][];
+
+    for(int i = 0; i < header.surfaceCount(); i++) {
+      final int divisor = 1 << i;
+      final int size = (header.width() / divisor) * (header.height() / divisor) * header.format().bpp / 8;
+      data[i] = readBytes(file, size);
+    }
 
     return new RawTexture(header, data);
   }
