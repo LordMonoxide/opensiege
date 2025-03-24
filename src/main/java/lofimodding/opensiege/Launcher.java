@@ -27,7 +27,7 @@ import java.util.concurrent.Future;
 public final class Launcher {
   private Launcher() { }
 
-  public static void main(final String[] args) throws IOException, ExecutionException, InterruptedException {
+  public static void main(final String[] args) throws IOException, ExecutionException, InterruptedException, ParseException {
     System.out.println("OpenSiege start!");
 
     final Path path;
@@ -55,7 +55,9 @@ public final class Launcher {
     exec.shutdown();
 
     final Path skritPath = p.resolve("world").resolve("global").resolve("skrits").resolve("weapon_cold.skrit");
-    final SkritParser parser = new SkritParser();
+    final SkritParser parser = new SkritParser(Files.newInputStream(skritPath));
+    final Node node = parser.CompilationUnit();
+    node.dump("");
 
     final Map<String, String> maps = new HashMap<>();
     final Map<String, GasEntry> mapGas = new HashMap<>();

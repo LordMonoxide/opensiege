@@ -2,9 +2,9 @@ options {
   LOOKAHEAD = 1;
   CHOICE_AMBIGUITY_CHECK = 2;
   OTHER_AMBIGUITY_CHECK = 1;
-  STATIC = true;
-  DEBUG_PARSER = true;
-  DEBUG_LOOKAHEAD = true;
+  STATIC = false;
+  DEBUG_PARSER = false;
+  DEBUG_LOOKAHEAD = false;
   DEBUG_TOKEN_MANAGER = false;
   ERROR_REPORTING = true;
   JAVA_UNICODE_ESCAPE = false;
@@ -16,9 +16,14 @@ options {
   BUILD_TOKEN_MANAGER = true;
   SANITY_CHECK = true;
   FORCE_LA_CHECK = false;
+
+  // jjtree
+  MULTI = true;
 }
 
 PARSER_BEGIN(SkritParser)
+
+package lofimodding.opensiege;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -191,8 +196,6 @@ TOKEN :
 | < LTGT: "<>" >
 | < SC_OR: "||" >
 | < SC_AND: "&&" >
-| < INCR: "++" >
-| < DECR: "--" >
 | < PLUS: "+" >
 | < MINUS: "-" >
 | < STAR: "*" >
@@ -214,14 +217,14 @@ TOKEN :
 }
 
 /** Root production. */
-Node CompilationUnit() :
+Node CompilationUnit() #Start :
 {}
 {
   ( BodyDeclaration() )+ <EOF>
   { return jjtThis; }
 }
 
-void BodyDeclaration() :
+void BodyDeclaration() #void :
 {}
 {
   LOOKAHEAD( MethodDeclarationLookahead() )
@@ -323,7 +326,7 @@ void Name() :
   <IDENTIFIER> ( LOOKAHEAD(2) "." <IDENTIFIER> )*
 }
 
-void Expression() :
+void Expression() #void :
 /*
  * This expansion has been written this way instead of:
  *   Assignment() | ConditionalExpression()
@@ -344,105 +347,89 @@ void AssignmentOperator() :
   <ASSIGN> | <STARASSIGN> | <SLASHASSIGN> | <REMASSIGN> | <PLUSASSIGN> | <MINUSASSIGN> | <ANDASSIGN> | <XORASSIGN> | <ORASSIGN>
 }
 
-void ConditionalExpression() :
+void ConditionalExpression() #void :
 {}
 {
-  ConditionalOrExpression() [ <HOOK> Expression() <COLON> ConditionalExpression() ]
+  ( ConditionalOrExpression() [ <HOOK> Expression() <COLON> ConditionalExpression() ] ) #Tern(>1)
 }
 
-void ConditionalOrExpression() :
+void ConditionalOrExpression() #void :
 {}
 {
-  ConditionalAndExpression() ( <SC_OR> ConditionalAndExpression() )*
+  ( ConditionalAndExpression() ( <SC_OR> ConditionalAndExpression() )* ) #Or(>1)
 }
 
-void ConditionalAndExpression() :
+void ConditionalAndExpression() #void :
 {}
 {
-  InclusiveOrExpression() ( <SC_AND> InclusiveOrExpression() )*
+  ( InclusiveOrExpression() ( <SC_AND> InclusiveOrExpression() )* ) #And(>1)
 }
 
-void InclusiveOrExpression() :
+void InclusiveOrExpression() #void :
 {}
 {
-  ExclusiveOrExpression() ( LOOKAHEAD(2) <ORASSIGN> ExclusiveOrExpression() )*
+  ( ExclusiveOrExpression() ( LOOKAHEAD(2) <ORASSIGN> ExclusiveOrExpression() )* ) #BitOr(>1)
 }
 
-void ExclusiveOrExpression() :
+void ExclusiveOrExpression() #void :
 {}
 {
-  AndExpression() ( LOOKAHEAD(2) <XORASSIGN> AndExpression() )*
+  ( AndExpression() ( LOOKAHEAD(2) <XORASSIGN> AndExpression() )* ) #BitXor(>1)
 }
 
-void AndExpression() :
+void AndExpression() #void :
 {}
 {
-  EqualityExpression() ( LOOKAHEAD(2) <ANDASSIGN> EqualityExpression() )*
+  ( EqualityExpression() ( LOOKAHEAD(2) <ANDASSIGN> EqualityExpression() )* ) #BitAnd(>1)
 }
 
-void EqualityExpression() :
+void EqualityExpression() #void :
 {}
 {
-  RelationalExpression() ( ( LOOKAHEAD(2) <EQ> | <NE> | <LTGT> ) RelationalExpression() )*
+  ( RelationalExpression() ( ( LOOKAHEAD(2) <EQ> | <NE> | <LTGT> ) RelationalExpression() )* ) #Equality(>1)
 }
 
-void RelationalExpression() :
+void RelationalExpression() #void :
 {}
 {
-  AdditiveExpression() ( ( LOOKAHEAD(2) <LT> | <GT> | <LE> | <GE> ) AdditiveExpression() )*
+  ( AdditiveExpression() ( ( LOOKAHEAD(2) <LT> | <GT> | <LE> | <GE> ) AdditiveExpression() )* ) #Relative(>1)
 }
 
-void AdditiveExpression() :
+void AdditiveExpression() #void :
 {}
 {
-  MultiplicativeExpression() ( ( LOOKAHEAD(2) <PLUS> | <MINUS> ) MultiplicativeExpression() )*
+  ( MultiplicativeExpression() ( ( LOOKAHEAD(2) <PLUS> | <MINUS> ) MultiplicativeExpression() )* ) #Add(>1)
 }
 
-void MultiplicativeExpression() :
+void MultiplicativeExpression() #void :
 {}
 {
-  PowerExpression() ( ( LOOKAHEAD(2) <STAR> | <SLASH> | <REM> ) PowerExpression() )*
+  ( PowerExpression() ( ( LOOKAHEAD(2) <STAR> | <SLASH> | <REM> ) PowerExpression() )* ) #Mult(>1)
 }
 
-void PowerExpression() :
+void PowerExpression() #void :
 {}
 {
-  UnaryExpression() ( <POW> UnaryExpression() )*
+  ( UnaryExpression() ( <POW> UnaryExpression() )* ) #Pow(>1)
 }
 
-void UnaryExpression() :
+void UnaryExpression() #void :
 {}
 {
-  ( <PLUS> | <MINUS> ) UnaryExpression()
-| PreIncrementExpression()
-| PreDecrementExpression()
-| UnaryExpressionNotPlusMinus()
+  (
+    ( <PLUS> | <MINUS> ) UnaryExpression()
+  | PrimaryExpression()
+  | UnaryExpressionNotPlusMinus()
+  ) #Unary(>1)
 }
 
-void PreIncrementExpression() :
+void UnaryExpressionNotPlusMinus() #void :
 {}
 {
-  <INCR> PrimaryExpression()
-}
-
-void PreDecrementExpression() :
-{}
-{
-  <DECR> PrimaryExpression()
-}
-
-void UnaryExpressionNotPlusMinus() :
-{}
-{
-  <BANG> UnaryExpression()
-|
-  PostfixExpression()
-}
-
-void PostfixExpression() :
-{}
-{
-  PrimaryExpression() [ <INCR> | <DECR> ]
+  (
+    <BANG> UnaryExpression()
+  | PrimaryExpression()
+  ) #Unary2(>1)
 }
 
 void PrimaryExpression() :
@@ -494,16 +481,23 @@ void ArgumentList() :
 }
 
 void Type() :
-{}
 {
-  PrimitiveType()
-| <IDENTIFIER>
+  ASTPrimitiveType primitive;
+  Token t;
+}
+{
+  primitive = PrimitiveType() { jjtThis.jjtSetValue(primitive.value); }
+| t = <IDENTIFIER> { jjtThis.jjtSetValue(t.image); }
 }
 
-void PrimitiveType() :
-{}
+ASTPrimitiveType PrimitiveType() :
 {
-  <BOOL> | <INT> | <FLOAT>
+  Token t;
+}
+{
+  t = <BOOL> { jjtThis.jjtSetValue(t.image); return jjtThis; }
+| t = <INT> { jjtThis.jjtSetValue(t.image); return jjtThis; }
+| t = <FLOAT> { jjtThis.jjtSetValue(t.image); return jjtThis; }
 }
 
 void ResultType() :
@@ -536,9 +530,7 @@ void StatementExpression() :
  */
 {}
 {
-  PreIncrementExpression()
-| PreDecrementExpression()
-| PrimaryExpression() [ <INCR> | <DECR> | AssignmentOperator() Expression() ]
+  PrimaryExpression() [ AssignmentOperator() Expression() ]
 }
 
 void IfStatement() :

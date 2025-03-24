@@ -75,7 +75,7 @@ public class Scene {
     final SnoRenderer snoRenderer = new SnoRenderer(sno);
     final Texture[] snoTextures = new Texture[snoRenderer.textureIndices.size()];
 
-    for(final Map.Entry<String, Integer> entry : snoRenderer.textureIndices.entrySet()) {
+    for(final Map.Entry<String, Integer> entry : snoRenderer.textureIndices.object2IntEntrySet()) {
       snoTextures[entry.getValue()] = this.textureManager.getTexture(entry.getKey());
     }
 

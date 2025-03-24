@@ -46,10 +46,14 @@ test {
   useJUnitPlatform()
 }
 
-//compileJavacc {
-//  outputDirectory = file(project.buildDir.absolutePath + '/generated/javacc')
-//}
-//
+compileJavacc {
+  outputDirectory = file(project.buildDir.absolutePath + '/generated/javacc/lofimodding/opensiege')
+}
+
+compileJjtree {
+  outputDirectory = file(project.buildDir.absolutePath + '/generated/jjtree/lofimodding/opensiege')
+}
+
 sourceSets {
   main {
     java {
