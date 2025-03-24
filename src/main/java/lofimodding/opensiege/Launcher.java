@@ -54,6 +54,9 @@ public final class Launcher {
 
     exec.shutdown();
 
+    final Path skritPath = p.resolve("world").resolve("global").resolve("skrits").resolve("weapon_cold.skrit");
+    final SkritParser parser = new SkritParser();
+
     final Map<String, String> maps = new HashMap<>();
     final Map<String, GasEntry> mapGas = new HashMap<>();
 

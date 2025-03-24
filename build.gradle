@@ -1,15 +1,22 @@
 plugins {
   id 'java'
+  id "org.javacc.javacc" version "4.0.1"
 }
 
-group 'lofimodding'
-version '1.0-SNAPSHOT'
+group = 'lofimodding'
+version = '1.0-SNAPSHOT'
+
+java {
+  sourceCompatibility = targetCompatibility = JavaVersion.VERSION_21
+}
+
+compileJava.options.encoding = 'UTF-8'
 
 repositories {
   mavenCentral()
 }
 
-project.ext.lwjglVersion = "3.3.0"
+project.ext.lwjglVersion = "3.3.6"
 project.ext.lwjglNatives = "natives-windows"
 
 dependencies {
@@ -22,8 +29,10 @@ dependencies {
   runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
   runtimeOnly "org.lwjgl:lwjgl-opengl::$lwjglNatives"
 
-  implementation group: 'fastutil', name: 'fastutil', version: '5.0.9'
-  implementation group: 'org.joml', name: 'joml', version: '1.10.3'
+  javacc 'org.javacc.generator:java:8.0.1'
+
+  implementation group: 'it.unimi.dsi', name: 'fastutil', version: '8.5.15'
+  implementation group: 'org.joml', name: 'joml', version: '1.10.8'
 
   implementation group: 'net.oneandone.reflections8', name: 'reflections8', version: '0.11.7'
 
@@ -36,3 +45,15 @@ dependencies {
 test {
   useJUnitPlatform()
 }
+
+//compileJavacc {
+//  outputDirectory = file(project.buildDir.absolutePath + '/generated/javacc')
+//}
+//
+//sourceSets {
+//  main {
+//    java {
+//      srcDirs = ["src/main/java", "${buildDir}/generated/javacc"]
+//    }
+//  }
+//}

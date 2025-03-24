@@ -1,0 +1,559 @@
+options {
+  LOOKAHEAD = 1;
+  CHOICE_AMBIGUITY_CHECK = 2;
+  OTHER_AMBIGUITY_CHECK = 1;
+  STATIC = true;
+  DEBUG_PARSER = true;
+  DEBUG_LOOKAHEAD = true;
+  DEBUG_TOKEN_MANAGER = false;
+  ERROR_REPORTING = true;
+  JAVA_UNICODE_ESCAPE = false;
+  UNICODE_INPUT = false;
+  IGNORE_CASE = false;
+  USER_TOKEN_MANAGER = false;
+  USER_CHAR_STREAM = false;
+  BUILD_PARSER = true;
+  BUILD_TOKEN_MANAGER = true;
+  SANITY_CHECK = true;
+  FORCE_LA_CHECK = false;
+}
+
+PARSER_BEGIN(SkritParser)
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public class SkritParser {
+  public static void main(final String[] args) throws ParseException, IOException {
+    final Path path = Path.of("C:/Users/corey/OneDrive/Desktop/DS Hacking/Raw Files/world/global/skrits/weapon_cold.skrit");
+    SkritParser parser = new SkritParser(Files.newInputStream(path));
+
+    try {
+      Node n = parser.CompilationUnit();
+      n.dump("");
+    } catch (Exception e) {
+      System.out.println(e.getMessage());
+      e.printStackTrace();
+    }
+  }
+}
+
+PARSER_END(SkritParser)
+
+SKIP :
+{
+  " "
+| "\t"
+| "\n"
+| "\r"
+| "\f"
+}
+
+/* COMMENTS */
+
+MORE :
+{
+  "//" : IN_SINGLE_LINE_COMMENT
+| "/*" : IN_MULTI_LINE_COMMENT
+}
+
+<IN_SINGLE_LINE_COMMENT>
+SPECIAL_TOKEN :
+{
+  <SINGLE_LINE_COMMENT: "\n" | "\r" | "\r\n" > : DEFAULT
+}
+
+<IN_MULTI_LINE_COMMENT>
+SPECIAL_TOKEN :
+{
+  <MULTI_LINE_COMMENT: "*/" > : DEFAULT
+}
+
+<IN_SINGLE_LINE_COMMENT,IN_MULTI_LINE_COMMENT>
+MORE :
+{
+  < ~[] >
+}
+
+/* RESERVED WORDS AND LITERALS */
+
+TOKEN :
+{
+  < BOOL: "bool" >
+| < DOC: "doc" >
+| < ELSE: "else" >
+| < FALSE: "false" >
+| < FLOAT: "float" >
+| < IF: "if" >
+| < INT: "int" >
+| < PROPERTY: "property" >
+| < RETURN: "return" >
+| < TRUE: "true" >
+| < VOID: "void" >
+| < WHILE: "while" >
+}
+
+/* LITERALS */
+
+TOKEN :
+{
+  < INTEGER_LITERAL:
+      <DECIMAL_LITERAL>
+    | <HEX_LITERAL>
+  >
+|
+  < #DECIMAL_LITERAL: ["1"-"9"] (["0"-"9"])* >
+|
+  < #HEX_LITERAL: "0" ["x","X"] (["0"-"9","a"-"f","A"-"F"])+ >
+|
+  < FLOATING_POINT_LITERAL:
+      (["0"-"9"])+ "." (["0"-"9"])* (<EXPONENT>)?
+    | "." (["0"-"9"])+ (<EXPONENT>)?
+    | (["0"-"9"])+ <EXPONENT>
+    | (["0"-"9"])+ (<EXPONENT>)?
+  >
+|
+  < #EXPONENT: ["e","E"] (["+","-"])? (["0"-"9"])+ >
+|
+  < STRING_LITERAL:
+    "\""
+    (
+        (~["\"","\\","\n","\r"])
+      | ("\\"
+        (
+            ["n","t","b","r","f","\\","'","\""]
+          | ["0"-"7"] ( ["0"-"7"] )?
+          | ["0"-"3"] ["0"-"7"] ["0"-"7"]
+        )
+      )
+    )*
+    "\""
+  >
+}
+
+/* IDENTIFIERS */
+
+TOKEN :
+{
+  < IDENTIFIER: <LETTER> (<PART_LETTER>)* >
+|
+  < #LETTER:
+    [  // all chars that can start an identifier
+      "$",
+      "A"-"Z",
+      "_",
+      "a"-"z"
+    ]
+  >
+|
+  < #PART_LETTER:
+    [  // all chars that can be part of an identifier
+      "$",
+      "0"-"9",
+      "A"-"Z",
+      "_",
+      "a"-"z"
+    ]
+  >
+}
+
+/* SEPARATORS */
+
+TOKEN :
+{
+  < LPAREN: "(" >
+| < RPAREN: ")" >
+| < LBRACE: "{" >
+| < RBRACE: "}" >
+| < LBRACKET: "[" >
+| < RBRACKET: "]" >
+| < SEMICOLON: ";" >
+| < COMMA: "," >
+| < DOT: "." >
+}
+
+/* OPERATORS */
+
+TOKEN :
+{
+  < ASSIGN: "=" >
+| < GT: ">" >
+| < LT: "<" >
+| < BANG: "!" >
+| < HOOK: "?" >
+| < COLON: ":" >
+| < EQ: "==" >
+| < EQISH: "~=" >
+| < LE: "<=" >
+| < GE: ">=" >
+| < NE: "!=" >
+| < LTGT: "<>" >
+| < SC_OR: "||" >
+| < SC_AND: "&&" >
+| < INCR: "++" >
+| < DECR: "--" >
+| < PLUS: "+" >
+| < MINUS: "-" >
+| < STAR: "*" >
+| < SLASH: "/" >
+| < BIT_AND: "&" >
+| < BIT_OR: "|" >
+| < XOR: "^" >
+| < REM: "%" >
+| < POW: "**" >
+| < PLUSASSIGN: "+=" >
+| < MINUSASSIGN: "-=" >
+| < STARASSIGN: "*=" >
+| < SLASHASSIGN: "/=" >
+| < ANDASSIGN: "&=" >
+| < ORASSIGN: "|=" >
+| < XORASSIGN: "^=" >
+| < REMASSIGN: "%=" >
+| < POWASSIGN: "**=" >
+}
+
+/** Root production. */
+Node CompilationUnit() :
+{}
+{
+  ( BodyDeclaration() )+ <EOF>
+  { return jjtThis; }
+}
+
+void BodyDeclaration() :
+{}
+{
+  LOOKAHEAD( MethodDeclarationLookahead() )
+  MethodDeclaration()
+| PropertyDelcaration()
+| FieldDeclaration()
+}
+
+void FieldDeclaration() :
+{}
+{
+  Type() VariableDeclarator() ( "," VariableDeclarator() )* ";"
+}
+
+void PropertyDelcaration() :
+{}
+{
+  <PROPERTY> Type() VariableDeclarator() <DOC> <ASSIGN> <STRING_LITERAL> ";"
+}
+
+// This production is to determine lookahead only.
+void MethodDeclarationLookahead() :
+{}
+{
+  LOOKAHEAD(2)
+  <IDENTIFIER> ( "(" | "{" )
+| ( LOOKAHEAD(2) ResultType() )? <IDENTIFIER> ( "(" | "{" )
+}
+
+void MethodDeclaration() :
+{}
+{
+  LOOKAHEAD(2)
+  MethodDeclarator() Block()
+| ( LOOKAHEAD(2) ResultType() )? MethodDeclarator() Block()
+}
+
+void Block() :
+{}
+{
+  "{" ( BlockStatement() )* "}"
+}
+
+void BlockStatement() :
+{}
+{
+  LOOKAHEAD(Type() <IDENTIFIER>)
+  LocalVariableDeclaration() ";"
+| Statement()
+}
+
+void LocalVariableDeclaration() :
+{}
+{
+  Type() VariableDeclarator() ( "," VariableDeclarator() )*
+}
+
+void MethodDeclarator() :
+{}
+{
+  <IDENTIFIER> ( FormalParameters() )?
+}
+
+void FormalParameters() :
+{}
+{
+  "(" [ FormalParameter() ( "," FormalParameter() )* ] ")"
+}
+
+void FormalParameter() :
+{}
+{
+  Type() ( VariableDeclaratorId() )?
+}
+
+// VARIABLES =========================================
+
+void VariableDeclarator() :
+{}
+{
+  VariableDeclaratorId() [ <ASSIGN> VariableInitializer() ]
+}
+
+void VariableDeclaratorId() :
+{}
+{
+  <IDENTIFIER>
+}
+
+void VariableInitializer() :
+{}
+{
+  Expression()
+}
+
+void Name() :
+{}
+{
+  <IDENTIFIER> ( LOOKAHEAD(2) "." <IDENTIFIER> )*
+}
+
+void Expression() :
+/*
+ * This expansion has been written this way instead of:
+ *   Assignment() | ConditionalExpression()
+ * for performance reasons.
+ * However, it is a weakening of the grammar for it allows the LHS of
+ * assignments to be any conditional expression whereas it can only be
+ * a primary expression.  Consider adding a semantic predicate to work
+ * around this.
+ */
+{}
+{
+  ConditionalExpression() [ AssignmentOperator() Expression() ]
+}
+
+void AssignmentOperator() :
+{}
+{
+  <ASSIGN> | <STARASSIGN> | <SLASHASSIGN> | <REMASSIGN> | <PLUSASSIGN> | <MINUSASSIGN> | <ANDASSIGN> | <XORASSIGN> | <ORASSIGN>
+}
+
+void ConditionalExpression() :
+{}
+{
+  ConditionalOrExpression() [ <HOOK> Expression() <COLON> ConditionalExpression() ]
+}
+
+void ConditionalOrExpression() :
+{}
+{
+  ConditionalAndExpression() ( <SC_OR> ConditionalAndExpression() )*
+}
+
+void ConditionalAndExpression() :
+{}
+{
+  InclusiveOrExpression() ( <SC_AND> InclusiveOrExpression() )*
+}
+
+void InclusiveOrExpression() :
+{}
+{
+  ExclusiveOrExpression() ( LOOKAHEAD(2) <ORASSIGN> ExclusiveOrExpression() )*
+}
+
+void ExclusiveOrExpression() :
+{}
+{
+  AndExpression() ( LOOKAHEAD(2) <XORASSIGN> AndExpression() )*
+}
+
+void AndExpression() :
+{}
+{
+  EqualityExpression() ( LOOKAHEAD(2) <ANDASSIGN> EqualityExpression() )*
+}
+
+void EqualityExpression() :
+{}
+{
+  RelationalExpression() ( ( LOOKAHEAD(2) <EQ> | <NE> | <LTGT> ) RelationalExpression() )*
+}
+
+void RelationalExpression() :
+{}
+{
+  AdditiveExpression() ( ( LOOKAHEAD(2) <LT> | <GT> | <LE> | <GE> ) AdditiveExpression() )*
+}
+
+void AdditiveExpression() :
+{}
+{
+  MultiplicativeExpression() ( ( LOOKAHEAD(2) <PLUS> | <MINUS> ) MultiplicativeExpression() )*
+}
+
+void MultiplicativeExpression() :
+{}
+{
+  PowerExpression() ( ( LOOKAHEAD(2) <STAR> | <SLASH> | <REM> ) PowerExpression() )*
+}
+
+void PowerExpression() :
+{}
+{
+  UnaryExpression() ( <POW> UnaryExpression() )*
+}
+
+void UnaryExpression() :
+{}
+{
+  ( <PLUS> | <MINUS> ) UnaryExpression()
+| PreIncrementExpression()
+| PreDecrementExpression()
+| UnaryExpressionNotPlusMinus()
+}
+
+void PreIncrementExpression() :
+{}
+{
+  <INCR> PrimaryExpression()
+}
+
+void PreDecrementExpression() :
+{}
+{
+  <DECR> PrimaryExpression()
+}
+
+void UnaryExpressionNotPlusMinus() :
+{}
+{
+  <BANG> UnaryExpression()
+|
+  PostfixExpression()
+}
+
+void PostfixExpression() :
+{}
+{
+  PrimaryExpression() [ <INCR> | <DECR> ]
+}
+
+void PrimaryExpression() :
+{}
+{
+  PrimaryPrefix() ( PrimarySuffix() )*
+}
+
+void PrimaryPrefix() :
+{}
+{
+  Literal()
+| "(" Expression() ")"
+| Name()
+}
+
+void PrimarySuffix() :
+{}
+{
+   "." <IDENTIFIER>
+| Arguments()
+}
+
+void Literal() :
+{}
+{
+  <INTEGER_LITERAL>
+| <FLOATING_POINT_LITERAL>
+| <STRING_LITERAL>
+| BooleanLiteral()
+}
+
+void BooleanLiteral() :
+{}
+{
+  <TRUE> | <FALSE>
+}
+
+void Arguments() :
+{}
+{
+  "(" [ ArgumentList() ] ")"
+}
+
+void ArgumentList() :
+{}
+{
+  Expression() ( "," Expression() )*
+}
+
+void Type() :
+{}
+{
+  PrimitiveType()
+| <IDENTIFIER>
+}
+
+void PrimitiveType() :
+{}
+{
+  <BOOL> | <INT> | <FLOAT>
+}
+
+void ResultType() :
+{}
+{
+  <VOID> | Type()
+}
+
+// STATEMENTS ===============================================
+
+void Statement() :
+{}
+{
+  LOOKAHEAD(2)
+  Block()
+| StatementExpression() ";"
+| IfStatement()
+//| WhileStatement()
+//| DoStatement()
+//| BreakStatement()
+//| ContinueStatement()
+| ReturnStatement()
+}
+
+void StatementExpression() :
+/*
+ * The last expansion of this production accepts more than the legal
+ * Java expansions for StatementExpression.  This expansion does not
+ * use PostfixExpression for performance reasons.
+ */
+{}
+{
+  PreIncrementExpression()
+| PreDecrementExpression()
+| PrimaryExpression() [ <INCR> | <DECR> | AssignmentOperator() Expression() ]
+}
+
+void IfStatement() :
+/*
+ * The disambiguating algorithm of JavaCC automatically binds dangling
+ * else's to the innermost if statement.  The LOOKAHEAD specification
+ * is to tell JavaCC that we know what we are doing.
+ */
+{}
+{
+  <IF> "(" Expression() ")" Statement() [ LOOKAHEAD(1) <ELSE> Statement() ]
+}
+
+void ReturnStatement() :
+{}
+{
+  <RETURN> [ Expression() ] ";"
+}
