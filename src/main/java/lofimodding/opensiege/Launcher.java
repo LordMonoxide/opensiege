@@ -2,6 +2,8 @@ package lofimodding.opensiege;
 
 import lofimodding.opensiege.formats.gas.GasEntry;
 import lofimodding.opensiege.formats.gas.GasLoader;
+import lofimodding.opensiege.formats.skrit.ParseException;
+import lofimodding.opensiege.formats.skrit.SkritCompiler;
 import lofimodding.opensiege.go.GoDb;
 import lofimodding.opensiege.world.StartGroup;
 import lofimodding.opensiege.world.World;
@@ -55,9 +57,10 @@ public final class Launcher {
     exec.shutdown();
 
     final Path skritPath = p.resolve("world").resolve("global").resolve("skrits").resolve("weapon_cold.skrit");
-    final SkritParser parser = new SkritParser(Files.newInputStream(skritPath));
-    final Node node = parser.CompilationUnit();
-    node.dump("");
+    final SkritCompiler compiler = new SkritCompiler();
+    compiler.compile(Files.newInputStream(skritPath));
+
+    if(true)return;
 
     final Map<String, String> maps = new HashMap<>();
     final Map<String, GasEntry> mapGas = new HashMap<>();

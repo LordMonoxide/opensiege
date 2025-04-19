@@ -23,7 +23,7 @@ options {
 
 PARSER_BEGIN(SkritParser)
 
-package lofimodding.opensiege;
+package lofimodding.opensiege.formats.skrit;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -268,7 +268,7 @@ void Block() :
   "{" ( BlockStatement() )* "}"
 }
 
-void BlockStatement() :
+void BlockStatement() #void :
 {}
 {
   LOOKAHEAD(Type() <IDENTIFIER>)
@@ -309,9 +309,11 @@ void VariableDeclarator() :
 }
 
 void VariableDeclaratorId() :
-{}
 {
-  <IDENTIFIER>
+  Token t;
+}
+{
+  t = <IDENTIFIER> { jjtThis.jjtSetValue(t.image); }
 }
 
 void VariableInitializer() :
@@ -323,7 +325,7 @@ void VariableInitializer() :
 void Name() :
 {}
 {
-  <IDENTIFIER> ( LOOKAHEAD(2) "." <IDENTIFIER> )*
+  <IDENTIFIER> ( LOOKAHEAD(2) "." Name() )*
 }
 
 void Expression() #void :
@@ -432,25 +434,18 @@ void UnaryExpressionNotPlusMinus() #void :
   ) #Unary2(>1)
 }
 
-void PrimaryExpression() :
+void PrimaryExpression() #void :
 {}
 {
-  PrimaryPrefix() ( PrimarySuffix() )*
+  PrimaryPrefix() ( Arguments() )?
 }
 
-void PrimaryPrefix() :
+void PrimaryPrefix() #void :
 {}
 {
   Literal()
 | "(" Expression() ")"
 | Name()
-}
-
-void PrimarySuffix() :
-{}
-{
-   "." <IDENTIFIER>
-| Arguments()
 }
 
 void Literal() :
@@ -462,13 +457,16 @@ void Literal() :
 | BooleanLiteral()
 }
 
-void BooleanLiteral() :
-{}
+Token BooleanLiteral() :
 {
-  <TRUE> | <FALSE>
+  Token t;
+}
+{
+  t = <TRUE> { return t; }
+| t = <FALSE> { return t; }
 }
 
-void Arguments() :
+void Arguments() #void :
 {}
 {
   "(" [ ArgumentList() ] ")"

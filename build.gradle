@@ -47,11 +47,11 @@ test {
 }
 
 compileJavacc {
-  outputDirectory = file(project.buildDir.absolutePath + '/generated/javacc/lofimodding/opensiege')
+  outputDirectory = file(project.buildDir.absolutePath + '/generated/javacc/lofimodding/opensiege/formats/skrit')
 }
 
 compileJjtree {
-  outputDirectory = file(project.buildDir.absolutePath + '/generated/jjtree/lofimodding/opensiege')
+  outputDirectory = file(project.buildDir.absolutePath + '/generated/jjtree/lofimodding/opensiege/formats/skrit')
 }
 
 sourceSets {
