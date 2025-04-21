@@ -1,4 +1,4 @@
 package lofimodding.opensiege.formats.skrit.tokens;
 
-public class Token {
+public class SkritToken {
 }

@@ -283,9 +283,11 @@ void LocalVariableDeclaration() :
 }
 
 void MethodDeclarator() :
-{}
 {
-  <IDENTIFIER> ( FormalParameters() )?
+  Token t;
+}
+{
+  t = <IDENTIFIER> { jjtThis.jjtSetValue(t.image); } ( FormalParameters() )?
 }
 
 void FormalParameters() :
@@ -451,19 +453,43 @@ void PrimaryPrefix() #void :
 void Literal() :
 {}
 {
-  <INTEGER_LITERAL>
-| <FLOATING_POINT_LITERAL>
-| <STRING_LITERAL>
+  IntLiteral()
+| FloatLiteral()
+| StringLiteral()
 | BooleanLiteral()
 }
 
-Token BooleanLiteral() :
+void IntLiteral() :
 {
   Token t;
 }
 {
-  t = <TRUE> { return t; }
-| t = <FALSE> { return t; }
+  t = <INTEGER_LITERAL> { jjtThis.jjtSetValue(t.image); }
+}
+
+void FloatLiteral() :
+{
+  Token t;
+}
+{
+  t = <FLOATING_POINT_LITERAL> { jjtThis.jjtSetValue(t.image); }
+}
+
+void StringLiteral() :
+{
+  Token t;
+}
+{
+  t = <STRING_LITERAL> { jjtThis.jjtSetValue(t.image); }
+}
+
+void BooleanLiteral() :
+{
+  Token t;
+}
+{
+  t = <TRUE> { jjtThis.jjtSetValue(t.image); }
+| t = <FALSE> { jjtThis.jjtSetValue(t.image); }
 }
 
 void Arguments() #void :
@@ -479,23 +505,30 @@ void ArgumentList() :
 }
 
 void Type() :
+{}
 {
-  ASTPrimitiveType primitive;
-  Token t;
-}
-{
-  primitive = PrimitiveType() { jjtThis.jjtSetValue(primitive.value); }
-| t = <IDENTIFIER> { jjtThis.jjtSetValue(t.image); }
+  (
+    PrimitiveType()
+  | ClassType()
+  ) #Type(>1)
 }
 
-ASTPrimitiveType PrimitiveType() :
+void PrimitiveType() :
 {
   Token t;
 }
 {
-  t = <BOOL> { jjtThis.jjtSetValue(t.image); return jjtThis; }
-| t = <INT> { jjtThis.jjtSetValue(t.image); return jjtThis; }
-| t = <FLOAT> { jjtThis.jjtSetValue(t.image); return jjtThis; }
+  t = <BOOL> { jjtThis.jjtSetValue(t.image); }
+| t = <INT> { jjtThis.jjtSetValue(t.image); }
+| t = <FLOAT> { jjtThis.jjtSetValue(t.image); }
+}
+
+void ClassType() :
+{
+  Token t;
+}
+{
+  t = <IDENTIFIER> { jjtThis.jjtSetValue(t.image); }
 }
 
 void ResultType() :
