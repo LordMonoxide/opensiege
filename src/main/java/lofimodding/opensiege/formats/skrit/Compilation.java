@@ -34,6 +34,11 @@ public class Compilation {
     this.nodeStack.pop();
   }
 
+  public void backtrack() {
+    this.nodeStack.pop();
+    this.nodeStack.peek().childIndex--;
+  }
+
   public int getTokenId() {
     return this.currentNode().getId();
   }

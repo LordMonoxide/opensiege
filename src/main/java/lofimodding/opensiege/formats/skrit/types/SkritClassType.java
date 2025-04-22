@@ -6,4 +6,9 @@ public class SkritClassType extends SkritType {
   public SkritClassType(final String type) {
     this.type = type;
   }
+
+  @Override
+  public String toString() {
+    return "Class[" + this.type + ']';
+  }
 }

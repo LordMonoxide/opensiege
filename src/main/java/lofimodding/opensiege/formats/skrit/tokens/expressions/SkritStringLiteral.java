@@ -1,9 +1,9 @@
 package lofimodding.opensiege.formats.skrit.tokens.expressions;
 
-public class SkritFloatLiteral extends SkritExpression {
-  public final float value;
+public class SkritStringLiteral extends SkritExpression {
+  public final String value;
 
-  public SkritFloatLiteral(final float value) {
+  public SkritStringLiteral(final String value) {
     this.value = value;
   }
 
@@ -14,6 +14,6 @@ public class SkritFloatLiteral extends SkritExpression {
 
   @Override
   public String toString() {
-    return "Float[" + this.value + ']';
+    return "String[" + this.value + ']';
   }
 }

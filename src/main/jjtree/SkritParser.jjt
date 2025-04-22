@@ -325,9 +325,11 @@ void VariableInitializer() :
 }
 
 void Name() :
-{}
 {
-  <IDENTIFIER> ( LOOKAHEAD(2) "." Name() )*
+  Token t;
+}
+{
+  t = <IDENTIFIER> { jjtThis.jjtSetValue(t.image); } ( LOOKAHEAD(2) "." Name() )*
 }
 
 void Expression() #void :
@@ -439,15 +441,23 @@ void UnaryExpressionNotPlusMinus() #void :
 void PrimaryExpression() #void :
 {}
 {
-  PrimaryPrefix() ( Arguments() )?
-}
-
-void PrimaryPrefix() #void :
-{}
-{
   Literal()
 | "(" Expression() ")"
+| LOOKAHEAD(FunctionCallLookahead()) FunctionCall()
 | Name()
+}
+
+void FunctionCall() :
+{}
+{
+  Name() Arguments()
+}
+
+// This production is to determine lookahead only.
+void FunctionCallLookahead() :
+{}
+{
+  Name() "("
 }
 
 void Literal() :
