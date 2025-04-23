@@ -14,6 +14,6 @@ public class SkritStringLiteral extends SkritExpression {
 
   @Override
   public String toString() {
-    return "String[" + this.value + ']';
+    return this.value;
   }
 }

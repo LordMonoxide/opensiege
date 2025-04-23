@@ -14,6 +14,6 @@ public class SkritBoolLiteral extends SkritExpression {
 
   @Override
   public String toString() {
-    return "Bool[" + this.value + ']';
+    return String.valueOf(this.value);
   }
 }

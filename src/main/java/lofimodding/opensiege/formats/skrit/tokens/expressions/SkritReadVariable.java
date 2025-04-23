@@ -13,4 +13,9 @@ public class SkritReadVariable extends SkritExpression {
   public boolean isConstant() {
     return false;
   }
+
+  @Override
+  public String toString() {
+    return String.join(".", this.names);
+  }
 }

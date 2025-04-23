@@ -16,4 +16,16 @@ public class SkritVariable extends SkritToken {
     this.name = name;
     this.expression = expression;
   }
+
+  @Override
+  public String toString() {
+    final StringBuilder builder = new StringBuilder();
+    builder.append(this.type).append(' ').append(this.name);
+
+    if(this.expression != null) {
+      builder.append(" = ").append(this.expression);
+    }
+
+    return builder.toString();
+  }
 }

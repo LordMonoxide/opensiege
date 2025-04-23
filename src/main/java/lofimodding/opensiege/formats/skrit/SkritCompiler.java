@@ -3,18 +3,27 @@ package lofimodding.opensiege.formats.skrit;
 import lofimodding.opensiege.formats.skrit.exceptions.ExpectedTokenException;
 import lofimodding.opensiege.formats.skrit.exceptions.InvalidVariableInitializerException;
 import lofimodding.opensiege.formats.skrit.exceptions.SkritCompilerException;
+import lofimodding.opensiege.formats.skrit.tokens.SkritAssignmentStatement;
+import lofimodding.opensiege.formats.skrit.tokens.SkritFunctionCallStatement;
+import lofimodding.opensiege.formats.skrit.tokens.SkritIfStatement;
 import lofimodding.opensiege.formats.skrit.tokens.SkritMethod;
+import lofimodding.opensiege.formats.skrit.tokens.SkritReturnStatement;
 import lofimodding.opensiege.formats.skrit.tokens.SkritStatement;
 import lofimodding.opensiege.formats.skrit.tokens.SkritToken;
 import lofimodding.opensiege.formats.skrit.tokens.SkritVariable;
+import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritAdd;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritBoolLiteral;
+import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritEquality;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritExpression;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritFloatLiteral;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritFunctionCall;
+import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritIntLiteral;
+import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritMult;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritReadVariable;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritStringLiteral;
 import lofimodding.opensiege.formats.skrit.types.SkritClassType;
 import lofimodding.opensiege.formats.skrit.types.SkritFloatType;
+import lofimodding.opensiege.formats.skrit.types.SkritIntType;
 import lofimodding.opensiege.formats.skrit.types.SkritType;
 
 import java.io.InputStream;
@@ -138,6 +147,16 @@ public class SkritCompiler {
 
     final SkritStatement statement = switch(compilation.getTokenId()) {
       case SkritParserTreeConstants.JJTSTATEMENTEXPRESSION -> {
+        compilation.pushChild();
+
+        if(compilation.getTokenId() == SkritParserTreeConstants.JJTFUNCTIONCALL) {
+          final SkritStatement function = new SkritFunctionCallStatement(this.processFunctionCall(compilation));
+          compilation.pop();
+          yield function;
+        }
+
+        compilation.backtrack();
+
         final List<String> names = this.processNames(compilation);
 
         compilation.pushChild();
@@ -145,9 +164,21 @@ public class SkritCompiler {
         compilation.pop();
 
         final SkritExpression expression = this.processExpression(compilation);
-        yield new SkritStatement(names, expression);
+        yield new SkritAssignmentStatement(names, expression);
       }
 
+      case SkritParserTreeConstants.JJTIFSTATEMENT -> {
+        final SkritExpression expression = this.processExpression(compilation);
+
+        compilation.pushChild();
+        compilation.expectToken(SkritParserTreeConstants.JJTBLOCK);
+        final List<SkritToken> block = this.processBlock(compilation);
+        compilation.pop();
+
+        yield new SkritIfStatement(expression, block);
+      }
+
+      case SkritParserTreeConstants.JJTRETURNSTATEMENT -> new SkritReturnStatement();
       default -> compilation.unexpectedToken();
     };
 
@@ -172,6 +203,7 @@ public class SkritCompiler {
 
     final SkritType type = switch(compilation.getTokenId()) {
       case SkritParserTreeConstants.JJTPRIMITIVETYPE -> switch(compilation.getTokenValue()) {
+        case "int" -> new SkritIntType();
         case "float" -> new SkritFloatType();
         default -> compilation.unexpectedToken();
       };
@@ -225,6 +257,9 @@ public class SkritCompiler {
         yield new SkritReadVariable(this.processNames(compilation, names));
       }
       case SkritParserTreeConstants.JJTFUNCTIONCALL -> this.processFunctionCall(compilation);
+      case SkritParserTreeConstants.JJTADD -> new SkritAdd(this.processExpression(compilation), this.processExpression(compilation));
+      case SkritParserTreeConstants.JJTMULT -> new SkritMult(this.processExpression(compilation), this.processExpression(compilation));
+      case SkritParserTreeConstants.JJTEQUALITY -> new SkritEquality(this.processExpression(compilation), this.processExpression(compilation));
       default -> compilation.unexpectedToken();
     };
 
@@ -236,6 +271,7 @@ public class SkritCompiler {
     compilation.pushChild();
 
     final SkritExpression literal = switch(compilation.getTokenId()) {
+      case SkritParserTreeConstants.JJTINTLITERAL -> new SkritIntLiteral(Integer.parseInt(compilation.getTokenValue()));
       case SkritParserTreeConstants.JJTFLOATLITERAL -> new SkritFloatLiteral(Float.parseFloat(compilation.getTokenValue()));
       case SkritParserTreeConstants.JJTBOOLEANLITERAL -> new SkritBoolLiteral(Boolean.parseBoolean(compilation.getTokenValue()));
       case SkritParserTreeConstants.JJTSTRINGLITERAL -> new SkritStringLiteral(compilation.getTokenValue());
@@ -246,7 +282,7 @@ public class SkritCompiler {
     return literal;
   }
 
-  private SkritExpression processFunctionCall(final Compilation compilation) {
+  private SkritFunctionCall processFunctionCall(final Compilation compilation) {
     final List<String> names = this.processNames(compilation);
     final List<SkritExpression> params = new ArrayList<>();
 

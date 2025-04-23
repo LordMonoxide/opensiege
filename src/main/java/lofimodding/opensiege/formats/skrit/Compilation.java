@@ -49,6 +49,7 @@ public class Compilation {
 
   public <T> T unexpectedToken() {
     final NodeContext current = this.nodeStack.peek();
+    current.node.jjtGetParent().dump("Error: ");
     throw new UnexpectedTokenException("Unexpected token " + current + " in " + this.nodeStack.stream().skip(1).findFirst().orElse(null));
   }
 

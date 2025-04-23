@@ -582,7 +582,7 @@ void IfStatement() :
  */
 {}
 {
-  <IF> "(" Expression() ")" Statement() [ LOOKAHEAD(1) <ELSE> Statement() ]
+  <IF> "(" Expression() ")" Block() [ LOOKAHEAD(1) <ELSE> Block() ]
 }
 
 void ReturnStatement() :

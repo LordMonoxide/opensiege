@@ -1,8 +1,8 @@
 package lofimodding.opensiege.formats.skrit.types;
 
-public class SkritFloatType extends SkritType {
+public class SkritIntType extends SkritType {
   @Override
   public String toString() {
-    return "float";
+    return "int";
   }
 }
