@@ -242,7 +242,7 @@ void FieldDeclaration() :
 void PropertyDelcaration() :
 {}
 {
-  <PROPERTY> Type() VariableDeclarator() <DOC> <ASSIGN> <STRING_LITERAL> ";"
+  <PROPERTY> Type() VariableDeclarator() ( <DOC> <ASSIGN> <STRING_LITERAL> )? ";"
 }
 
 // This production is to determine lookahead only.
@@ -390,27 +390,64 @@ void AndExpression() #void :
 }
 
 void EqualityExpression() #void :
-{}
 {
-  ( RelationalExpression() ( ( LOOKAHEAD(2) <EQ> | <NE> | <LTGT> ) RelationalExpression() )* ) #Equality(>1)
+  Token t;
+}
+{
+  (
+    RelationalExpression() ( (
+      LOOKAHEAD(2)
+        t = <EQ> { jjtThis.jjtSetValue(t.image); }
+      | t = <EQISH> { jjtThis.jjtSetValue(t.image); }
+      | t = <NE> { jjtThis.jjtSetValue(t.image); }
+      | t = <LTGT> { jjtThis.jjtSetValue(t.image); }
+    ) RelationalExpression() )*
+  ) #Equality(>1)
 }
 
 void RelationalExpression() #void :
-{}
 {
-  ( AdditiveExpression() ( ( LOOKAHEAD(2) <LT> | <GT> | <LE> | <GE> ) AdditiveExpression() )* ) #Relative(>1)
+  Token t;
+}
+{
+  (
+    AdditiveExpression() ( (
+      LOOKAHEAD(2)
+        t = <LT> { jjtThis.jjtSetValue(t.image); }
+      | t = <GT> { jjtThis.jjtSetValue(t.image); }
+      | t = <LE> { jjtThis.jjtSetValue(t.image); }
+      | t = <GE> { jjtThis.jjtSetValue(t.image); }
+    ) AdditiveExpression() )*
+  ) #Relative(>1)
 }
 
 void AdditiveExpression() #void :
-{}
 {
-  ( MultiplicativeExpression() ( ( LOOKAHEAD(2) <PLUS> | <MINUS> ) MultiplicativeExpression() )* ) #Add(>1)
+  Token t;
+}
+{
+  (
+    MultiplicativeExpression() ( (
+      LOOKAHEAD(2)
+        t = <PLUS> { jjtThis.jjtSetValue(t.image); }
+      | t = <MINUS> { jjtThis.jjtSetValue(t.image); }
+    ) MultiplicativeExpression() )*
+  ) #Add(>1)
 }
 
 void MultiplicativeExpression() #void :
-{}
 {
-  ( PowerExpression() ( ( LOOKAHEAD(2) <STAR> | <SLASH> | <REM> ) PowerExpression() )* ) #Mult(>1)
+  Token t;
+}
+{
+  (
+    PowerExpression() ( (
+      LOOKAHEAD(2)
+        t = <STAR> { jjtThis.jjtSetValue(t.image); }
+      | t = <SLASH> { jjtThis.jjtSetValue(t.image); }
+      | t = <REM> { jjtThis.jjtSetValue(t.image); }
+    ) PowerExpression() )*
+  ) #Mult(>1)
 }
 
 void PowerExpression() #void :
@@ -582,7 +619,7 @@ void IfStatement() :
  */
 {}
 {
-  <IF> "(" Expression() ")" Block() [ LOOKAHEAD(1) <ELSE> Block() ]
+  <IF> Expression() Block() [ LOOKAHEAD(1) <ELSE> Block() ]
 }
 
 void ReturnStatement() :

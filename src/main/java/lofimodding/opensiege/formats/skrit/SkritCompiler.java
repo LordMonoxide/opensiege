@@ -11,14 +11,14 @@ import lofimodding.opensiege.formats.skrit.tokens.SkritReturnStatement;
 import lofimodding.opensiege.formats.skrit.tokens.SkritStatement;
 import lofimodding.opensiege.formats.skrit.tokens.SkritToken;
 import lofimodding.opensiege.formats.skrit.tokens.SkritVariable;
-import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritAdd;
+import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritAdditive;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritBoolLiteral;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritEquality;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritExpression;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritFloatLiteral;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritFunctionCall;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritIntLiteral;
-import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritMult;
+import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritMultiplicative;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritReadVariable;
 import lofimodding.opensiege.formats.skrit.tokens.expressions.SkritStringLiteral;
 import lofimodding.opensiege.formats.skrit.types.SkritClassType;
@@ -44,10 +44,10 @@ public class SkritCompiler {
     node.dump("");
 
     final Compilation compilation = new Compilation(node);
-    this.processScript(compilation);
+    final List<SkritToken> tokens = this.processScript(compilation); //TODO
   }
 
-  private void processScript(final Compilation compilation) {
+  private List<SkritToken> processScript(final Compilation compilation) {
     final List<SkritToken> tokens = new ArrayList<>();
 
     while(compilation.hasNextChild()) {
@@ -63,6 +63,7 @@ public class SkritCompiler {
     }
 
     compilation.pop();
+    return tokens;
   }
 
   private SkritVariable processField(final Compilation compilation) {
@@ -257,9 +258,9 @@ public class SkritCompiler {
         yield new SkritReadVariable(this.processNames(compilation, names));
       }
       case SkritParserTreeConstants.JJTFUNCTIONCALL -> this.processFunctionCall(compilation);
-      case SkritParserTreeConstants.JJTADD -> new SkritAdd(this.processExpression(compilation), this.processExpression(compilation));
-      case SkritParserTreeConstants.JJTMULT -> new SkritMult(this.processExpression(compilation), this.processExpression(compilation));
-      case SkritParserTreeConstants.JJTEQUALITY -> new SkritEquality(this.processExpression(compilation), this.processExpression(compilation));
+      case SkritParserTreeConstants.JJTADD -> new SkritAdditive(compilation.getTokenValue(), this.processExpression(compilation), this.processExpression(compilation));
+      case SkritParserTreeConstants.JJTMULT -> new SkritMultiplicative(compilation.getTokenValue(), this.processExpression(compilation), this.processExpression(compilation));
+      case SkritParserTreeConstants.JJTEQUALITY -> new SkritEquality(compilation.getTokenValue(), this.processExpression(compilation), this.processExpression(compilation));
       default -> compilation.unexpectedToken();
     };
 

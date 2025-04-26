@@ -57,6 +57,7 @@ public final class Launcher {
     exec.shutdown();
 
     final Path skritPath = p.resolve("world").resolve("global").resolve("skrits").resolve("weapon_cold.skrit");
+//    final Path skritPath = p.resolve("world").resolve("contentdb").resolve("pcontent.skrit");
     final SkritCompiler compiler = new SkritCompiler();
     compiler.compile(Files.newInputStream(skritPath));
 

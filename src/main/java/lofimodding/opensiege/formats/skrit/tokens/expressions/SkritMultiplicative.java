@@ -1,10 +1,12 @@
 package lofimodding.opensiege.formats.skrit.tokens.expressions;
 
-public class SkritAdd extends SkritExpression {
+public class SkritMultiplicative extends SkritExpression {
+  public final String operator;
   public final SkritExpression left;
   public final SkritExpression right;
 
-  public SkritAdd(final SkritExpression left, final SkritExpression right) {
+  public SkritMultiplicative(final String operator, final SkritExpression left, final SkritExpression right) {
+    this.operator = operator;
     this.left = left;
     this.right = right;
   }
@@ -16,6 +18,6 @@ public class SkritAdd extends SkritExpression {
 
   @Override
   public String toString() {
-    return "(" + this.left + " + " + this.right + ')';
+    return "(" + this.left + ' ' + this.operator + ' ' + this.right + ')';
   }
 }
